@@ -1,174 +1,342 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KSS Pack Builder</title>
-  <meta name="description" content="Create music packs for Knox Sound System, a Project Zomboid Build 42 mod. Runs entirely in your browser.">
+  <meta name="description" content="Create music packs for Knox Sound System, a Project Zomboid Build 42 mod. Free, runs entirely in your browser.">
+  <meta name="theme-color" content="#16151b">
+  <meta property="og:title" content="KSS Pack Builder">
+  <meta property="og:description" content="Turn your own songs into a music pack for Knox Sound System (Project Zomboid B42). Free, runs in your browser.">
+  <meta property="og:image" content="https://nohumantm.github.io/kss-pack-builder/img/shot-boombox.jpg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="img/icon.png">
   <!-- VERSION: cámbiala en todas las líneas (python bump_version.py) para que los navegadores no mezclen archivos viejos y nuevos -->
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=5",
-      "./js/constants.js": "./js/constants.js?v=5",
-      "./js/convert.js": "./js/convert.js?v=5",
-      "./js/i18n.js": "./js/i18n.js?v=5",
-      "./js/output.js": "./js/output.js?v=5",
-      "./js/packgen.js": "./js/packgen.js?v=5",
-      "./js/tags.js": "./js/tags.js?v=5",
-      "./js/youtube.js": "./js/youtube.js?v=5"
+      "./js/app.js": "./js/app.js?v=6",
+      "./js/constants.js": "./js/constants.js?v=6",
+      "./js/convert.js": "./js/convert.js?v=6",
+      "./js/i18n.js": "./js/i18n.js?v=6",
+      "./js/output.js": "./js/output.js?v=6",
+      "./js/packgen.js": "./js/packgen.js?v=6",
+      "./js/tags.js": "./js/tags.js?v=6",
+      "./js/youtube.js": "./js/youtube.js?v=6"
     }
   }
   </script>
   <script src="vendor/jsmediatags.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script type="module" src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 </head>
 <body>
+  <!-- Iconos -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="16" r="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z M14 3v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9v6l5-3z" fill="currentColor"/></symbol>
+    <symbol id="i-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-tape" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="11" r="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="11" r="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 19l2-3h8l2 3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4M12 17.5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 12l2.5 2.5 4.5-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-gamepad" viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v2a3 3 0 0 1-5.4 1.8L15 14H9l-1.6 1.8A3 3 0 0 1 2 14v-2a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 10.5v3M5.5 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-merge" viewBox="0 0 24 24"><path d="M6 4v5a6 6 0 0 0 6 6h0a6 6 0 0 1 6 6M18 4v5a6 6 0 0 1-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M21 16l-5-5-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
   <header class="topbar">
-    <div class="brand">
-      <img src="img/icon.png" alt="" class="brand-icon">
-      <div>
-        <h1>KSS Pack Builder</h1>
-        <p class="subtitle" data-i18n="app.subtitle"></p>
-      </div>
-    </div>
-    <div class="lang">
-      <button type="button" data-lang="es">ES</button>
-      <button type="button" data-lang="en">EN</button>
+    <div class="topbar-inner">
+      <button type="button" class="brand" id="brand-home">
+        <img src="img/icon.png" alt="" class="brand-icon" width="40" height="40">
+        <span class="brand-text">
+          <span class="brand-name">KSS Pack Builder</span>
+          <span class="brand-sub" data-i18n="app.subtitle"></span>
+        </span>
+      </button>
+      <nav class="top-links">
+        <a href="#faq" id="link-faq" data-i18n="nav.help"></a>
+        <a href="" id="link-mod" target="_blank" rel="noopener" hidden><span data-i18n="nav.mod"></span><svg class="ic xs"><use href="#i-external"/></svg></a>
+        <div class="lang" role="group" aria-label="Language">
+          <button type="button" data-lang="en">EN</button>
+          <button type="button" data-lang="es">ES</button>
+        </div>
+      </nav>
     </div>
   </header>
 
-  <nav class="steps" id="steps">
-    <button type="button" data-step="pack" data-i18n="step.pack"></button>
-    <button type="button" data-step="music" data-i18n="step.music"></button>
-    <button type="button" data-step="albums" data-i18n="step.albums"></button>
-    <button type="button" data-step="build" data-i18n="step.build"></button>
-  </nav>
-
-  <main>
-    <p class="privacy" data-i18n="app.privacy"></p>
-
-    <!-- 1. Pack -->
-    <section class="panel" id="step-pack">
-      <h2 data-i18n="pack.title"></h2>
-      <div class="actions-row">
-        <button type="button" class="btn" id="btn-new" data-i18n="pack.new"></button>
-        <button type="button" class="btn" id="btn-open" data-i18n="pack.open"></button>
-      </div>
-      <p class="hint" id="open-hint" data-i18n="pack.openHint"></p>
-      <p class="notice" id="pack-notice" hidden></p>
-      <div class="form-grid">
-        <label><span data-i18n="pack.name"></span>
-          <input type="text" id="pack-name" maxlength="80" data-i18n-ph="pack.namePh"></label>
-        <label><span data-i18n="pack.id"></span>
-          <input type="text" id="pack-id" maxlength="32" spellcheck="false">
-          <small data-i18n="pack.idHint"></small></label>
-        <label><span data-i18n="pack.author"></span>
-          <input type="text" id="pack-author" maxlength="60"></label>
-        <label class="wide"><span data-i18n="pack.description"></span>
-          <textarea id="pack-desc" rows="2" maxlength="300"></textarea></label>
-      </div>
-      <div class="nav-row"><span></span><button type="button" class="btn primary" data-goto="music" data-i18n="common.next"></button></div>
-    </section>
-
-    <!-- 2. Música -->
-    <section class="panel" id="step-music" hidden>
-      <h2 data-i18n="music.title"></h2>
-      <div class="dropzone" id="dropzone" tabindex="0">
-        <div class="drop-icon">♫</div>
-        <p class="drop-title" data-i18n="music.drop"></p>
-        <p class="hint" data-i18n="music.dropSub"></p>
-        <div class="actions-row center">
-          <label class="btn" for="files-input" data-i18n="music.files"></label>
-          <label class="btn" for="folder-input" data-i18n="music.folder"></label>
+  <!-- ===================== Portada ===================== -->
+  <section id="home" class="home">
+    <div class="hero">
+      <div class="hero-text">
+        <span class="eyebrow"><svg class="ic xs"><use href="#i-spark"/></svg> <span data-i18n="home.eyebrow"></span></span>
+        <h1 data-i18n="home.title"></h1>
+        <p class="lead" data-i18n="home.lead"></p>
+        <div class="hero-actions">
+          <button type="button" class="btn primary big" id="btn-start"><span data-i18n="home.start"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
+          <button type="button" class="btn ghost big" id="btn-home-open" data-i18n="home.edit"></button>
         </div>
-        <input type="file" id="files-input" multiple hidden>
-        <input type="file" id="folder-input" webkitdirectory multiple hidden>
+        <ul class="trust">
+          <li><svg class="ic sm"><use href="#i-shield"/></svg><span data-i18n="home.trust1"></span></li>
+          <li><svg class="ic sm"><use href="#i-check"/></svg><span data-i18n="home.trust2"></span></li>
+          <li><svg class="ic sm"><use href="#i-gamepad"/></svg><span data-i18n="home.trust3"></span></li>
+        </ul>
       </div>
-      <p class="notice" id="music-notice" hidden></p>
+      <div class="hero-media">
+        <img src="img/shot-boombox.jpg" alt="Knox Sound System Boombox" width="1280" height="720">
+      </div>
+    </div>
 
-      <details class="youtube" id="youtube">
-        <summary data-i18n="yt.title"></summary>
-        <p data-i18n="yt.intro"></p>
-        <label class="yt-url"><span data-i18n="yt.url"></span></label>
-        <div class="yt-row">
-          <input type="text" id="yt-url" inputmode="url" autocomplete="off" spellcheck="false" data-i18n-ph="yt.urlPh">
-          <button type="button" class="btn primary" id="yt-go" data-i18n="yt.go"></button>
+    <h2 class="section-title" data-i18n="home.howTitle"></h2>
+    <ol class="how">
+      <li><span class="how-num">1</span><svg class="ic lg"><use href="#i-music"/></svg><h3 data-i18n="home.how1t"></h3><p data-i18n="home.how1"></p></li>
+      <li><span class="how-num">2</span><svg class="ic lg"><use href="#i-tape"/></svg><h3 data-i18n="home.how2t"></h3><p data-i18n="home.how2"></p></li>
+      <li><span class="how-num">3</span><svg class="ic lg"><use href="#i-gamepad"/></svg><h3 data-i18n="home.how3t"></h3><p data-i18n="home.how3"></p></li>
+    </ol>
+
+    <div class="gallery">
+      <figure><img src="img/shot-models.jpg" alt="" loading="lazy" width="1280" height="720"><figcaption data-i18n="home.shot1"></figcaption></figure>
+      <figure><img src="img/shot-walkbox.jpg" alt="" loading="lazy" width="1280" height="720"><figcaption data-i18n="home.shot2"></figcaption></figure>
+      <figure><img src="img/shot-car.jpg" alt="" loading="lazy" width="1280" height="720"><figcaption data-i18n="home.shot3"></figcaption></figure>
+    </div>
+
+    <h2 class="section-title" id="faq" data-i18n="faq.title"></h2>
+    <div class="faq">
+      <details><summary data-i18n="faq.q1"></summary><p data-i18n="faq.a1"></p></details>
+      <details><summary data-i18n="faq.q2"></summary><p data-i18n="faq.a2"></p></details>
+      <details><summary data-i18n="faq.q3"></summary><p data-i18n="faq.a3"></p></details>
+      <details><summary data-i18n="faq.q4"></summary><p data-i18n="faq.a4"></p></details>
+      <details><summary data-i18n="faq.q5"></summary><p data-i18n="faq.a5"></p></details>
+      <details><summary data-i18n="faq.q6"></summary><p data-i18n="faq.a6"></p></details>
+      <details><summary data-i18n="faq.q7"></summary><p data-i18n="faq.a7"></p></details>
+    </div>
+
+    <div class="cta">
+      <p data-i18n="home.ctaText"></p>
+      <button type="button" class="btn primary big" id="btn-start-2"><span data-i18n="home.start"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
+    </div>
+  </section>
+
+  <!-- ===================== Asistente ===================== -->
+  <section id="wizard" class="wizard" hidden>
+    <nav class="steps" id="steps" aria-label="Steps">
+      <button type="button" data-step="pack"><span class="dot"><span class="n">1</span><svg class="ic sm ok"><use href="#i-check"/></svg></span><span class="lbl"><b data-i18n="step.pack"></b><small data-i18n="step.packSub"></small></span></button>
+      <button type="button" data-step="music"><span class="dot"><span class="n">2</span><svg class="ic sm ok"><use href="#i-check"/></svg></span><span class="lbl"><b data-i18n="step.music"></b><small data-i18n="step.musicSub"></small></span></button>
+      <button type="button" data-step="albums"><span class="dot"><span class="n">3</span><svg class="ic sm ok"><use href="#i-check"/></svg></span><span class="lbl"><b data-i18n="step.albums"></b><small data-i18n="step.albumsSub"></small></span></button>
+      <button type="button" data-step="build"><span class="dot"><span class="n">4</span><svg class="ic sm ok"><use href="#i-check"/></svg></span><span class="lbl"><b data-i18n="step.build"></b><small data-i18n="step.buildSub"></small></span></button>
+    </nav>
+
+    <main>
+      <!-- 1. Pack -->
+      <section class="panel" id="step-pack">
+        <header class="panel-head">
+          <h2 data-i18n="pack.title"></h2>
+          <p class="panel-sub" data-i18n="pack.sub"></p>
+        </header>
+        <div class="choice-row">
+          <button type="button" class="choice" id="btn-new">
+            <svg class="ic lg"><use href="#i-plus"/></svg>
+            <span><b data-i18n="pack.new"></b><small data-i18n="pack.newHint"></small></span>
+          </button>
+          <button type="button" class="choice" id="btn-open">
+            <svg class="ic lg"><use href="#i-folder"/></svg>
+            <span><b data-i18n="pack.open"></b><small id="open-hint" data-i18n="pack.openHint"></small></span>
+          </button>
         </div>
-        <div class="yt-options" id="yt-options" hidden>
-          <label><input type="radio" name="yt-mode" value="playlist" checked> <span data-i18n="yt.modePlaylist"></span></label>
-          <label><input type="radio" name="yt-mode" value="video"> <span data-i18n="yt.modeVideo"></span></label>
-          <label class="yt-shell"><span data-i18n="yt.shell"></span>
-            <select id="yt-shell"><option value="powershell">PowerShell (Windows)</option><option value="bash">bash / zsh (Mac, Linux)</option></select></label>
+        <p class="notice" id="pack-notice" hidden></p>
+        <div class="form-grid">
+          <label class="field wide"><span class="label"><span data-i18n="pack.name"></span> <em class="req">*</em></span>
+            <input type="text" id="pack-name" maxlength="80" data-i18n-ph="pack.namePh" autocomplete="off">
+            <small class="help" data-i18n="pack.nameHint"></small></label>
+          <label class="field"><span class="label" data-i18n="pack.author"></span>
+            <input type="text" id="pack-author" maxlength="60" data-i18n-ph="pack.authorPh" autocomplete="off"></label>
+          <label class="field"><span class="label" data-i18n="pack.description"></span>
+            <input type="text" id="pack-desc" maxlength="300" data-i18n-ph="pack.descPh" autocomplete="off"></label>
         </div>
-        <p class="warn-text" id="yt-invalid" hidden data-i18n="yt.invalid"></p>
-        <div class="command" id="yt-command-box" hidden>
-          <code id="yt-command"></code>
-          <button type="button" class="btn small" id="yt-copy" data-i18n="yt.copy"></button>
+        <details class="advanced" id="pack-advanced">
+          <summary><svg class="ic sm"><use href="#i-chevron"/></svg><span data-i18n="pack.advanced"></span> <code id="pack-id-preview"></code></summary>
+          <label class="field"><span class="label" data-i18n="pack.id"></span>
+            <input type="text" id="pack-id" maxlength="32" spellcheck="false" autocomplete="off">
+            <small class="help" data-i18n="pack.idHint"></small></label>
+        </details>
+      </section>
+
+      <!-- 2. Música -->
+      <section class="panel" id="step-music" hidden>
+        <header class="panel-head">
+          <h2 data-i18n="music.title"></h2>
+          <p class="panel-sub" data-i18n="music.sub"></p>
+        </header>
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" class="tab active" data-tab="files"><svg class="ic sm"><use href="#i-music"/></svg><span data-i18n="music.tabFiles"></span></button>
+          <button type="button" role="tab" class="tab" data-tab="youtube"><svg class="ic sm"><use href="#i-play"/></svg><span data-i18n="music.tabYoutube"></span></button>
         </div>
-        <p class="hint" data-i18n="yt.steps"></p>
-        <p class="hint"><span data-i18n="yt.install"></span> <code>winget install yt-dlp</code> · <code>brew install yt-dlp ffmpeg</code></p>
-        <p class="legal" data-i18n="yt.legal"></p>
-      </details>
-      <div class="nav-row">
-        <button type="button" class="btn" data-goto="pack" data-i18n="common.back"></button>
-        <button type="button" class="btn primary" data-goto="albums" data-i18n="common.next"></button>
-      </div>
-    </section>
 
-    <!-- 3. Álbumes -->
-    <section class="panel" id="step-albums" hidden>
-      <div class="albums-head">
-        <h2 data-i18n="albums.title"></h2>
-        <span class="summary" id="albums-summary"></span>
-        <button type="button" class="btn small" id="btn-merge-all" data-i18n="albums.mergeAll"></button>
-        <button type="button" class="btn small" id="btn-new-album" data-i18n="albums.newAlbum"></button>
-      </div>
-      <p class="hint" id="albums-empty" data-i18n="albums.empty"></p>
-      <div class="albums" id="albums"></div>
-      <div class="nav-row">
-        <button type="button" class="btn" data-goto="music" data-i18n="common.back"></button>
-        <button type="button" class="btn primary" data-goto="build" data-i18n="common.next"></button>
-      </div>
-    </section>
+        <div class="tab-panel" data-panel="files">
+          <div class="dropzone" id="dropzone" tabindex="0">
+            <div class="drop-icon"><svg class="ic xl"><use href="#i-upload"/></svg></div>
+            <p class="drop-title" data-i18n="music.drop"></p>
+            <p class="hint" data-i18n="music.dropSub"></p>
+            <div class="actions-row center">
+              <label class="btn primary" for="folder-input"><svg class="ic sm"><use href="#i-folder"/></svg><span data-i18n="music.folder"></span></label>
+              <label class="btn" for="files-input"><svg class="ic sm"><use href="#i-file"/></svg><span data-i18n="music.files"></span></label>
+            </div>
+            <input type="file" id="files-input" multiple hidden>
+            <input type="file" id="folder-input" webkitdirectory multiple hidden>
+            <div class="reading" id="reading" hidden><div class="bar"><div class="fill" id="reading-fill"></div></div><span id="reading-text"></span></div>
+          </div>
+          <p class="notice" id="music-notice" hidden></p>
+          <div class="added" id="added" hidden>
+            <h3 data-i18n="music.addedTitle"></h3>
+            <ul class="added-list" id="added-list"></ul>
+          </div>
+          <p class="tip"><svg class="ic sm"><use href="#i-spark"/></svg><span data-i18n="music.tip"></span></p>
+        </div>
 
-    <!-- 4. Generar -->
-    <section class="panel" id="step-build" hidden>
-      <h2 data-i18n="build.title"></h2>
-      <label class="check"><input type="checkbox" id="opt-normalize" checked> <span data-i18n="build.normalize"></span></label>
-      <h3 data-i18n="build.dest"></h3>
-      <div class="dests" id="dests">
-        <label class="dest" data-needs-folders><input type="radio" name="dest" value="mods" checked>
-          <span><b data-i18n="build.destMods"></b><small data-i18n="build.destModsHint"></small></span></label>
-        <label class="dest" data-needs-folders><input type="radio" name="dest" value="workshop">
-          <span><b data-i18n="build.destWorkshop"></b><small data-i18n="build.destWorkshopHint"></small></span></label>
-        <label class="dest" id="dest-same" hidden><input type="radio" name="dest" value="same">
-          <span><b data-i18n="build.destSame"></b><small id="dest-same-label"></small></span></label>
-        <label class="dest"><input type="radio" name="dest" value="zip">
-          <span><b data-i18n="build.destZip"></b><small data-i18n="build.destZipHint"></small></span></label>
-      </div>
-      <p class="warn-text" id="no-folders" hidden data-i18n="build.noFolders"></p>
-      <p class="warn-text" id="build-blocked" hidden data-i18n="build.fixFirst"></p>
-      <div class="actions-row">
-        <button type="button" class="btn primary big" id="btn-build" data-i18n="build.start"></button>
-        <button type="button" class="btn" id="btn-cancel" hidden data-i18n="build.cancel"></button>
-      </div>
-      <div class="progress" id="progress" hidden>
-        <div class="bar"><div class="fill" id="progress-fill"></div></div>
-        <p id="progress-text"></p>
-      </div>
-      <ul class="log" id="log"></ul>
-      <p class="notice success" id="next-steps" hidden></p>
-      <div class="nav-row"><button type="button" class="btn" data-goto="albums" data-i18n="common.back"></button><span></span></div>
-    </section>
-  </main>
+        <div class="tab-panel youtube" data-panel="youtube" id="youtube" hidden>
+          <p data-i18n="yt.intro"></p>
+          <ol class="yt-steps">
+            <li>
+              <b data-i18n="yt.step1"></b>
+              <p class="hint"><span data-i18n="yt.install"></span></p>
+              <div class="install">
+                <span>Windows</span><code>winget install yt-dlp</code>
+                <span>Mac</span><code>brew install yt-dlp ffmpeg</code>
+              </div>
+            </li>
+            <li>
+              <b data-i18n="yt.step2"></b>
+              <div class="yt-row">
+                <input type="text" id="yt-url" inputmode="url" autocomplete="off" spellcheck="false" data-i18n-ph="yt.urlPh" aria-label="YouTube">
+                <button type="button" class="btn primary" id="yt-go" data-i18n="yt.go"></button>
+              </div>
+              <p class="warn-text" id="yt-invalid" hidden data-i18n="yt.invalid"></p>
+              <div class="yt-options" id="yt-options" hidden>
+                <label class="pill-radio"><input type="radio" name="yt-mode" value="playlist" checked> <span data-i18n="yt.modePlaylist"></span></label>
+                <label class="pill-radio"><input type="radio" name="yt-mode" value="video"> <span data-i18n="yt.modeVideo"></span></label>
+                <label class="yt-shell"><span data-i18n="yt.shell"></span>
+                  <select id="yt-shell"><option value="powershell">PowerShell (Windows)</option><option value="bash">Terminal (Mac, Linux)</option></select></label>
+              </div>
+              <div class="command" id="yt-command-box" hidden>
+                <code id="yt-command"></code>
+                <button type="button" class="btn small" id="yt-copy"><svg class="ic xs"><use href="#i-copy"/></svg><span data-i18n="yt.copy"></span></button>
+              </div>
+            </li>
+            <li><b data-i18n="yt.step3"></b><p class="hint" data-i18n="yt.steps"></p></li>
+            <li><b data-i18n="yt.step4"></b><p class="hint" data-i18n="yt.step4Sub"></p></li>
+          </ol>
+          <p class="legal" data-i18n="yt.legal"></p>
+        </div>
+      </section>
 
-  <footer>
-    <span>Knox Sound System · KSS Pack Builder</span>
-    <span>ffmpeg.wasm (GPL) · jsmediatags · JSZip — <a href="THIRD_PARTY_NOTICES.md">licenses</a></span>
+      <!-- 3. Álbumes -->
+      <section class="panel" id="step-albums" hidden>
+        <header class="panel-head row">
+          <div>
+            <h2 data-i18n="albums.title"></h2>
+            <p class="panel-sub" data-i18n="albums.sub"></p>
+          </div>
+          <div class="toolbar">
+            <button type="button" class="btn small" id="btn-new-album"><svg class="ic xs"><use href="#i-plus"/></svg><span data-i18n="albums.newAlbum"></span></button>
+            <button type="button" class="btn small" id="btn-merge-all"><svg class="ic xs"><use href="#i-merge"/></svg><span data-i18n="albums.mergeAll"></span></button>
+          </div>
+        </header>
+        <div class="bulk" id="bulk" hidden>
+          <svg class="ic sm"><use href="#i-alert"/></svg>
+          <span id="bulk-text"></span>
+          <select id="bulk-genre"></select>
+        </div>
+        <div class="empty" id="albums-empty">
+          <svg class="ic xl"><use href="#i-disc"/></svg>
+          <p data-i18n="albums.empty"></p>
+          <button type="button" class="btn" data-goto="music" data-i18n="albums.goMusic"></button>
+        </div>
+        <div class="albums" id="albums"></div>
+      </section>
+
+      <!-- 4. Generar -->
+      <section class="panel" id="step-build" hidden>
+        <header class="panel-head">
+          <h2 data-i18n="build.title"></h2>
+          <p class="panel-sub" data-i18n="build.sub"></p>
+        </header>
+        <div class="review" id="review"></div>
+
+        <h3 class="sub-title" data-i18n="build.dest"></h3>
+        <div class="dests" id="dests">
+          <label class="dest" data-needs-folders><input type="radio" name="dest" value="mods" checked>
+            <svg class="ic lg"><use href="#i-gamepad"/></svg>
+            <span><b><span data-i18n="build.destMods"></span> <em class="badge" data-i18n="build.recommended"></em></b><small data-i18n="build.destModsHint"></small></span></label>
+          <label class="dest" data-needs-folders><input type="radio" name="dest" value="workshop">
+            <svg class="ic lg"><use href="#i-upload"/></svg>
+            <span><b data-i18n="build.destWorkshop"></b><small data-i18n="build.destWorkshopHint"></small></span></label>
+          <label class="dest" id="dest-same" hidden><input type="radio" name="dest" value="same">
+            <svg class="ic lg"><use href="#i-folder"/></svg>
+            <span><b data-i18n="build.destSame"></b><small id="dest-same-label"></small></span></label>
+          <label class="dest"><input type="radio" name="dest" value="zip">
+            <svg class="ic lg"><use href="#i-download"/></svg>
+            <span><b data-i18n="build.destZip"></b><small data-i18n="build.destZipHint"></small></span></label>
+        </div>
+        <p class="notice warn" id="no-folders" hidden data-i18n="build.noFolders"></p>
+        <label class="switch"><input type="checkbox" id="opt-normalize" checked><span class="track-ui"></span><span><b data-i18n="build.normalizeT"></b><small data-i18n="build.normalize"></small></span></label>
+
+        <div class="build-box" id="build-box">
+          <p class="notice warn" id="build-blocked" hidden></p>
+          <div class="actions-row">
+            <button type="button" class="btn primary big" id="btn-build"><svg class="ic"><use href="#i-spark"/></svg><span data-i18n="build.start"></span></button>
+            <button type="button" class="btn" id="btn-cancel" hidden data-i18n="build.cancel"></button>
+          </div>
+          <div class="progress" id="progress" hidden>
+            <div class="progress-top"><span id="progress-text"></span><b id="progress-pct"></b></div>
+            <div class="bar"><div class="fill" id="progress-fill"></div></div>
+            <p class="hint" id="progress-hint" data-i18n="build.keepOpen"></p>
+          </div>
+          <ul class="log" id="log"></ul>
+        </div>
+
+        <div class="success" id="next-steps" hidden>
+          <div class="success-icon"><svg class="ic xl"><use href="#i-check"/></svg></div>
+          <h3 id="success-title"></h3>
+          <ol class="next-list" id="next-list"></ol>
+          <div class="actions-row center">
+            <button type="button" class="btn" data-goto="albums" data-i18n="build.editMore"></button>
+            <button type="button" class="btn" id="btn-another" data-i18n="build.another"></button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Barra inferior fija -->
+    <div class="actionbar" id="actionbar">
+      <div class="actionbar-inner">
+        <button type="button" class="btn ghost" id="nav-back" data-i18n="common.back"></button>
+        <span class="actionbar-info" id="actionbar-info"></span>
+        <button type="button" class="btn primary" id="nav-next"><span data-i18n="common.next"></span><svg class="ic sm"><use href="#i-chevron"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span><b>KSS Pack Builder</b> · <span data-i18n="footer.made"></span></span>
+      <span class="footer-links">
+        <a href="https://github.com/NoHumanTM/kss-pack-builder" target="_blank" rel="noopener">GitHub</a>
+        <a href="THIRD_PARTY_NOTICES.md" data-i18n="footer.licenses"></a>
+      </span>
+    </div>
   </footer>
+  <div class="toast" id="toast" role="status" hidden></div>
 </body>
 </html>

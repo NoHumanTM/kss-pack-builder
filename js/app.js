@@ -1,8 +1,8 @@
 // KSS Pack Builder - aplicación principal.
 
-import { t, applyStatic, getLang, setLang } from "./i18n.js";
+import { t, tHtml, applyStatic, getLang, setLang } from "./i18n.js";
 import {
-  GENRES, RARITIES, FORMATS, PACK_ID_RE, AUDIO_EXT, IMAGE_EXT, MAX_TRACKS,
+  GENRES, RARITIES, FORMATS, PACK_ID_RE, AUDIO_EXT, IMAGE_EXT, MAX_TRACKS, MOD_URL,
   newId, slugify, extOf, formatTime,
 } from "./constants.js";
 import { readTrackInfo, isCoverImage, groupKey } from "./tags.js";
@@ -12,6 +12,7 @@ import { canWriteFolders, ZipWriter, SubWriter, pickZomboidFolder, pickPackFolde
 import { parseYouTubeUrl, buildCommand } from "./youtube.js";
 
 const $ = (id) => document.getElementById(id);
+const STEPS = ["pack", "music", "albums", "build"];
 
 // ---------------------------------------------------------------------------
 // Estado
@@ -22,8 +23,10 @@ const state = {
   opened: null,     // { writer, label } si se abrió un pack existente o ya se generó en una carpeta
   dirty: false,
   building: false,
+  built: false,
   cancel: false,
   step: "pack",
+  view: "home",
 };
 
 function newAlbum(fields = {}) {
@@ -38,6 +41,7 @@ function newAlbum(fields = {}) {
     coverBlob: null,
     coverUrl: null,
     tracks: [],
+    open: undefined,  // tarjeta desplegada en el paso 3 (undefined = decide la app)
     ...fields,
   };
 }
@@ -50,6 +54,7 @@ function setCover(album, blob) {
 
 function markDirty() {
   state.dirty = true;
+  state.built = false;
 }
 
 function allTracks() {
@@ -57,17 +62,142 @@ function allTracks() {
 }
 
 // ---------------------------------------------------------------------------
-// Navegación entre pasos
+// Utilidades de interfaz
 // ---------------------------------------------------------------------------
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null && v !== false) node.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of [].concat(children)) if (c) node.append(c);
+  return node;
+}
+
+function icon(name, size = "sm") {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", `ic ${size}`);
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", `#i-${name}`);
+  svg.append(use);
+  return svg;
+}
+
+function select(options, value, onChange, placeholder) {
+  const s = el("select", { onchange: (e) => onChange(e.target.value) });
+  if (placeholder) s.append(el("option", { value: "", text: placeholder }));
+  for (const [v, label] of options) {
+    const o = el("option", { value: v, text: label });
+    if (v === value) o.selected = true;
+    s.append(o);
+  }
+  return s;
+}
+
+function notice(id, text) {
+  const node = $(id);
+  node.textContent = text;
+  node.hidden = !text;
+}
+
+let toastTimer = null;
+function toast(text) {
+  const node = $("toast");
+  node.textContent = text;
+  node.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { node.hidden = true; }, 3200);
+}
+
+// ---------------------------------------------------------------------------
+// Estado de cada paso
+// ---------------------------------------------------------------------------
+function packOk() {
+  return !!state.pack.name.trim() && PACK_ID_RE.test(state.pack.id);
+}
+
+function badAlbums() {
+  return state.pack.albums.filter((a) => albumWarnings(a).length);
+}
+
+function stepDone(step) {
+  if (step === "pack") return packOk();
+  if (step === "music") return allTracks().length > 0;
+  if (step === "albums") return allTracks().length > 0 && badAlbums().length === 0;
+  if (step === "build") return state.built;
+  return false;
+}
+
+function refreshChrome() {
+  document.querySelectorAll("#steps button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.step === state.step);
+    b.classList.toggle("done", b.dataset.step !== state.step && stepDone(b.dataset.step));
+  });
+  const i = STEPS.indexOf(state.step);
+  $("nav-back").style.visibility = i > 0 ? "visible" : "hidden";
+  $("nav-next").hidden = state.step === "build";
+  const tracks = allTracks().length;
+  const albums = state.pack.albums.length;
+  let info = "";
+  if (state.step === "pack") info = packOk() ? tHtml("bar.packOk", state.pack.name) : t("bar.packMissing");
+  if (state.step === "music") info = tracks ? tHtml("bar.musicOk", tracks, albums) : t("bar.musicMissing");
+  if (state.step === "albums") {
+    const bad = badAlbums().length;
+    info = !tracks ? t("bar.musicMissing") : bad ? tHtml("bar.albumsBad", bad) : tHtml("bar.albumsOk", albums);
+  }
+  if (state.step === "build") info = tHtml("bar.build", tracks, albums);
+  $("actionbar-info").innerHTML = info;
+  $("nav-next").disabled = (state.step === "pack" && !packOk()) || (state.step === "music" && !tracks);
+}
+
+// ---------------------------------------------------------------------------
+// Vistas: portada y asistente
+// ---------------------------------------------------------------------------
+function showHome(anchor) {
+  state.view = "home";
+  $("home").hidden = false;
+  $("wizard").hidden = true;
+  if (anchor) $(anchor).scrollIntoView({ behavior: "smooth" });
+  else window.scrollTo({ top: 0 });
+}
+
+function showWizard(step = state.step) {
+  state.view = "wizard";
+  $("home").hidden = true;
+  $("wizard").hidden = false;
+  showStep(step);
+}
+
 function showStep(step) {
   state.step = step;
-  for (const s of ["pack", "music", "albums", "build"]) {
-    $(`step-${s}`).hidden = s !== step;
-  }
-  document.querySelectorAll("#steps button").forEach((b) => b.classList.toggle("active", b.dataset.step === step));
+  for (const s of STEPS) $(`step-${s}`).hidden = s !== step;
+  if (step === "music") renderAdded();
   if (step === "albums") renderAlbums();
   if (step === "build") renderBuild();
+  refreshChrome();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function goNext() {
+  if (state.step === "albums") {
+    const bad = badAlbums();
+    if (bad.length) {
+      bad[0].open = true;
+      renderAlbums();
+      document.querySelector(".album.has-warnings")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast(t("build.fixAlbums"));
+      return;
+    }
+  }
+  const i = STEPS.indexOf(state.step);
+  if (i < STEPS.length - 1) showStep(STEPS[i + 1]);
+}
+
+function goBack() {
+  const i = STEPS.indexOf(state.step);
+  if (i > 0) showStep(STEPS[i - 1]);
 }
 
 // ---------------------------------------------------------------------------
@@ -83,14 +213,10 @@ function syncPackForm() {
 
 function validatePackId() {
   const ok = PACK_ID_RE.test(state.pack.id);
-  $("pack-id").classList.toggle("invalid", !ok);
+  $("pack-id").classList.toggle("invalid", !ok && !!state.pack.name);
+  $("pack-id-preview").textContent = state.pack.id || "—";
+  if (!ok && state.idTouched) $("pack-advanced").open = true;
   return ok;
-}
-
-function notice(id, text) {
-  const el = $(id);
-  el.textContent = text;
-  el.hidden = !text;
 }
 
 function resetPack() {
@@ -99,8 +225,13 @@ function resetPack() {
   state.idTouched = false;
   state.opened = null;
   state.dirty = false;
+  state.built = false;
   notice("pack-notice", "");
+  $("next-steps").hidden = true;
+  $("progress").hidden = true;
+  $("log").replaceChildren();
   syncPackForm();
+  refreshChrome();
 }
 
 async function openExistingPack() {
@@ -128,6 +259,7 @@ async function openExistingPack() {
     state.opened = { writer, label };
     syncPackForm();
     notice("pack-notice", t("pack.opened", state.pack.name, state.pack.albums.length));
+    refreshChrome();
   } catch (e) {
     if (e.name !== "AbortError") notice("pack-notice", String(e.message || e));
   }
@@ -166,6 +298,12 @@ function folderPath(file) {
   return i >= 0 ? rel.slice(0, i) : "";
 }
 
+function readingProgress(done, total) {
+  $("reading").hidden = done >= total;
+  $("reading-fill").style.width = `${Math.round((done / Math.max(1, total)) * 100)}%`;
+  $("reading-text").textContent = t("music.reading", done, total);
+}
+
 async function addFiles(files) {
   const audio = files.filter((f) => AUDIO_EXT.includes(extOf(f.name)));
   const covers = new Map(); // carpeta -> imagen de carátula
@@ -176,12 +314,13 @@ async function addFiles(files) {
 
   const groups = new Map();
   for (let i = 0; i < audio.length; i++) {
-    notice("music-notice", t("music.reading", i + 1, audio.length));
+    readingProgress(i, audio.length);
     const info = await readTrackInfo(audio[i]);
     const key = groupKey(info);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(info);
   }
+  readingProgress(audio.length, audio.length);
 
   let added = 0;
   let albumsTouched = 0;
@@ -217,7 +356,22 @@ async function addFiles(files) {
   }
   splitOversizedAlbums();
   markDirty();
-  notice("music-notice", t("music.added", added, albumsTouched));
+  toast(t("music.added", added, albumsTouched));
+  renderAdded();
+  refreshChrome();
+}
+
+function renderAdded() {
+  const albums = state.pack.albums.filter((a) => a.tracks.length);
+  $("added").hidden = !albums.length;
+  $("added-list").replaceChildren(...albums.map((a) => {
+    const thumb = el("span", { class: "thumb" }, a.coverUrl ? [] : [icon("disc")]);
+    if (a.coverUrl) thumb.style.backgroundImage = `url("${a.coverUrl}")`;
+    return el("li", {}, [thumb, el("span", { class: "meta" }, [
+      el("b", { text: a.title || "?" }),
+      el("small", { text: [a.artist, t("album.tracks", a.tracks.length)].filter(Boolean).join(" · ") }),
+    ])]);
+  }));
 }
 
 // Un CD o un cassette lleva como mucho MAX_TRACKS pistas: los álbumes más grandes se parten en volúmenes.
@@ -269,6 +423,13 @@ function setupDropzone() {
   $("folder-input").addEventListener("change", async (e) => { await addFiles(Array.from(e.target.files)); e.target.value = ""; });
 }
 
+function setupTabs() {
+  document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === tab));
+    document.querySelectorAll(".tab-panel").forEach((p) => { p.hidden = p.dataset.panel !== tab.dataset.tab; });
+  }));
+}
+
 let lastYouTubeUrl = null;
 
 function setupYouTube() {
@@ -306,8 +467,7 @@ function setupYouTube() {
   $("yt-copy").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText($("yt-command").textContent);
-      $("yt-copy").textContent = t("yt.copied");
-      setTimeout(() => { $("yt-copy").textContent = t("yt.copy"); }, 1500);
+      toast(t("yt.copied"));
     } catch (e) { /* sin portapapeles */ }
   });
 }
@@ -324,29 +484,6 @@ function albumWarnings(album) {
   if (!album.tracks.length) w.push(t("warn.tracks"));
   if (album.tracks.length > MAX_TRACKS) w.push(t("warn.tooMany", album.tracks.length, MAX_TRACKS));
   return w;
-}
-
-function el(tag, attrs = {}, children = []) {
-  const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") node.className = v;
-    else if (k === "text") node.textContent = v;
-    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
-    else if (v !== undefined && v !== null && v !== false) node.setAttribute(k, v === true ? "" : v);
-  }
-  for (const c of [].concat(children)) if (c) node.append(c);
-  return node;
-}
-
-function select(options, value, onChange, placeholder) {
-  const s = el("select", { onchange: (e) => onChange(e.target.value) });
-  if (placeholder) s.append(el("option", { value: "", text: placeholder }));
-  for (const [v, label] of options) {
-    const o = el("option", { value: v, text: label });
-    if (v === value) o.selected = true;
-    s.append(o);
-  }
-  return s;
 }
 
 let dragged = null; // { album, track }
@@ -387,7 +524,7 @@ function renderTrack(album, track, index) {
       album.tracks.splice(album.tracks.indexOf(track), 1);
       let target;
       if (v === "new") {
-        target = newAlbum({ title: track.title, artist: album.artist, genre: album.genre, formats: [...album.formats] });
+        target = newAlbum({ title: track.title, artist: album.artist, genre: album.genre, formats: [...album.formats], open: true });
         state.pack.albums.push(target);
       } else {
         target = others[+v];
@@ -402,26 +539,27 @@ function renderTrack(album, track, index) {
   row.append(
     el("span", { class: "handle", text: "⠿", title: "drag" }),
     el("span", { class: "num", text: String(index + 1).padStart(2, "0") }),
-    el("input", { type: "text", value: track.title, oninput: (e) => { track.title = e.target.value; markDirty(); } }),
+    el("input", { type: "text", value: track.title, "aria-label": t("album.title"), oninput: (e) => { track.title = e.target.value; markDirty(); } }),
     el("span", { class: "dur", text: track.existing ? `${formatTime(track.duration)} · ${t("track.kept")}` : (track.duration ? formatTime(track.duration) : "") }),
     move,
     el("button", {
-      class: "remove", type: "button", title: t("track.remove"), text: "×",
+      class: "remove", type: "button", title: t("track.remove"), "aria-label": t("track.remove"), text: "×",
       onclick: () => { album.tracks.splice(album.tracks.indexOf(track), 1); markDirty(); renderAlbums(); },
     }),
   );
   return row;
 }
 
-function renderAlbum(album) {
-  const warnings = albumWarnings(album);
-  const card = el("article", { class: "album" + (warnings.length ? " has-warnings" : "") });
-
+function renderAlbumBody(album, warnings) {
   // carátula
   const coverInput = el("input", { type: "file", accept: "image/*", hidden: true });
-  const cover = el("div", { class: "cover", title: t("album.cover") }, album.coverUrl ? [] : [t("album.cover")]);
+  const cover = el("div", { class: "cover" + (album.coverUrl ? " has-img" : ""), title: t("album.cover"), tabindex: "0", role: "button" }, [
+    icon("image", "lg"),
+    el("span", { text: album.coverUrl ? t("album.coverChange") : t("album.coverAdd") }),
+  ]);
   if (album.coverUrl) cover.style.backgroundImage = `url("${album.coverUrl}")`;
   cover.addEventListener("click", () => coverInput.click());
+  cover.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); coverInput.click(); } });
   coverInput.addEventListener("change", () => {
     if (coverInput.files[0]) { setCover(album, coverInput.files[0]); markDirty(); renderAlbums(); }
   });
@@ -430,17 +568,21 @@ function renderAlbum(album) {
   cover.addEventListener("drop", (e) => {
     if (dragged) return;
     e.preventDefault();
+    e.stopPropagation();
     cover.classList.remove("over");
     const img = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
     if (img) { setCover(album, img); markDirty(); renderAlbums(); }
   });
 
-  // campos
+  // campos (se re-pinta al salir del campo para actualizar avisos y cabecera)
   const input = (key, attrs = {}) => el("input", {
     type: "text", value: album[key] ?? "", ...attrs,
     oninput: (e) => { album[key] = e.target.value; markDirty(); },
     onchange: () => renderAlbums(),
   });
+  const field = (label, control, missing, help) => el("label", { class: "field" + (missing ? " missing" : "") }, [
+    el("span", { class: "label", text: label }), control, help ? el("small", { class: "help", text: help }) : null,
+  ]);
   const genreSelect = select(GENRES.map((g) => [g, t(`genre.${g}`)]), album.genre,
     (v) => { album.genre = v || null; markDirty(); renderAlbums(); }, t("album.genrePick"));
   const raritySelect = select(RARITIES.map((r) => [r, t(`rarity.${r}`)]), album.rarity,
@@ -454,40 +596,76 @@ function renderAlbum(album) {
         renderAlbums();
       },
     }),
+    icon(f === "cd" ? "disc" : "tape", "xs"),
     t(`format.${f}`),
   ])));
 
+  const othersWithoutGenre = album.genre && state.pack.albums.some((a) => a !== album && !a.genre);
   const side = el("div", { class: "album-side" }, [
-    warnings.length ? el("div", { class: "warnings" }, warnings.map((w) => el("span", { text: w }))) : null,
+    warnings.length ? el("div", { class: "warnings" }, warnings.map((w) => el("span", {}, [icon("alert", "xs"), w]))) : null,
     el("div", { class: "album-fields" }, [
-      el("label", {}, [el("span", { text: t("album.title") }), input("title")]),
-      el("label", {}, [el("span", { text: t("album.artist") }), input("artist")]),
-      el("label", {}, [el("span", { text: t("album.year") }), input("year", { inputmode: "numeric", maxlength: 4 })]),
+      field(t("album.title"), input("title"), !album.title.trim()),
+      field(t("album.artist"), input("artist"), !album.artist.trim()),
+      field(t("album.year"), input("year", { inputmode: "numeric", maxlength: 4 })),
     ]),
     el("div", { class: "album-fields2" }, [
-      el("label", {}, [el("span", { text: t("album.genre") }), genreSelect]),
-      el("label", {}, [el("span", { text: t("album.rarity") }), raritySelect]),
-      el("label", {}, [el("span", { text: t("album.formats") }), formats]),
+      field(t("album.genre"), genreSelect, !album.genre),
+      field(t("album.rarity"), raritySelect),
+      field(t("album.formats"), formats, !album.formats.length),
     ]),
-    album.genre ? el("button", {
-      class: "link", type: "button", text: t("album.applyGenre"),
-      onclick: () => { for (const a of state.pack.albums) if (!a.genre) a.genre = album.genre; markDirty(); renderAlbums(); },
-    }) : null,
+    el("small", { class: "help", text: t("album.genreHelp") }),
     el("ol", { class: "tracks" }, album.tracks.map((tr, i) => renderTrack(album, tr, i))),
-    el("div", { class: "album-actions" }, [album.tracks.length > MAX_TRACKS ? el("button", {
-      class: "btn small", type: "button", text: t("album.split"),
-      onclick: () => { splitOversizedAlbums(); markDirty(); renderAlbums(); },
-    }) : null, el("button", {
-      class: "link", type: "button", text: t("album.delete"),
-      onclick: () => {
-        if (!confirm(t("album.deleteConfirm", album.title, album.tracks.length))) return;
-        setCover(album, null);
-        state.pack.albums.splice(state.pack.albums.indexOf(album), 1);
-        markDirty();
-        renderAlbums();
-      },
-    })]),
+    el("div", { class: "album-actions" }, [
+      el("span", {}, [
+        othersWithoutGenre ? el("button", {
+          class: "link", type: "button", text: t("album.applyGenre"),
+          onclick: () => { for (const a of state.pack.albums) if (!a.genre) a.genre = album.genre; markDirty(); renderAlbums(); },
+        }) : null,
+      ]),
+      el("span", { class: "actions-row" }, [
+        album.tracks.length > MAX_TRACKS ? el("button", {
+          class: "btn small", type: "button", text: t("album.split"),
+          onclick: () => { splitOversizedAlbums(); markDirty(); renderAlbums(); },
+        }) : null,
+        el("button", {
+          class: "btn small danger", type: "button",
+          onclick: () => {
+            if (!confirm(t("album.deleteConfirm", album.title, album.tracks.length))) return;
+            setCover(album, null);
+            state.pack.albums.splice(state.pack.albums.indexOf(album), 1);
+            markDirty();
+            renderAlbums();
+          },
+        }, [icon("trash", "xs"), t("album.delete")]),
+      ]),
+    ]),
   ]);
+  return el("div", { class: "album-body" }, [el("div", {}, [cover, coverInput]), side]);
+}
+
+function renderAlbum(album) {
+  const warnings = albumWarnings(album);
+  if (album.open === undefined) album.open = state.pack.albums.length <= 2;
+  const card = el("article", { class: "album" + (warnings.length ? " has-warnings" : "") + (album.open ? " open" : "") });
+
+  const thumb = el("span", { class: "album-thumb" }, album.coverUrl ? [] : [icon("disc")]);
+  if (album.coverUrl) thumb.style.backgroundImage = `url("${album.coverUrl}")`;
+  const head = el("div", { class: "album-head", tabindex: "0", role: "button", "aria-expanded": String(album.open) }, [
+    el("span", { class: "chev" }, [icon("chevron")]),
+    thumb,
+    el("span", { class: "album-title" }, [
+      el("b", { text: album.title || "—" }),
+      el("small", { text: [album.artist, album.genre ? t(`genre.${album.genre}`) : null, t("album.tracks", album.tracks.length)].filter(Boolean).join(" · ") }),
+    ]),
+    warnings.length
+      ? el("span", { class: "status bad" }, [icon("alert", "xs"), t("status.bad", warnings.length)])
+      : el("span", { class: "status ok" }, [icon("check", "xs"), t("status.ok")]),
+  ]);
+  const toggle = () => { album.open = !album.open; renderAlbums(); };
+  head.addEventListener("click", toggle);
+  head.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+  card.append(head);
+  if (album.open) card.append(renderAlbumBody(album, warnings));
 
   // soltar una pista al final de este álbum
   card.addEventListener("dragover", (e) => { if (dragged) { e.preventDefault(); card.classList.add("drop-target"); } });
@@ -501,8 +679,6 @@ function renderAlbum(album) {
     markDirty();
     renderAlbums();
   });
-
-  card.append(el("div", {}, [cover, coverInput]), side);
   return card;
 }
 
@@ -523,6 +699,7 @@ function mergeAllAlbums() {
     artist: t("albums.mixArtist"),
     genre,
     formats: [...new Set(albums.flatMap((a) => a.formats))],
+    open: true,
   });
   if (withCover) setCover(mix, withCover.coverBlob);
   for (const a of albums) {
@@ -541,22 +718,43 @@ function mergeAllAlbums() {
   renderAlbums();
 }
 
+function renderBulkGenre() {
+  const missing = state.pack.albums.filter((a) => !a.genre);
+  $("bulk").hidden = missing.length < 2;
+  if (missing.length < 2) return;
+  $("bulk-text").textContent = t("bulk.text", missing.length);
+  const s = $("bulk-genre");
+  s.replaceChildren(el("option", { value: "", text: t("bulk.pick") }), ...GENRES.map((g) => el("option", { value: g, text: t(`genre.${g}`) })));
+}
+
 function renderAlbums() {
-  // quita álbumes vacíos que se quedaron sin pistas al moverlas (salvo si se crearon a mano)
-  const container = $("albums");
-  container.replaceChildren(...state.pack.albums.map(renderAlbum));
-  const tracks = allTracks();
-  const total = tracks.reduce((s, tr) => s + (tr.duration || 0), 0);
-  $("albums-summary").textContent = t("albums.summary", state.pack.albums.length, tracks.length,
-    total ? formatTime(total) : "—");
+  $("albums").replaceChildren(...state.pack.albums.map(renderAlbum));
   $("albums-empty").hidden = state.pack.albums.length > 0;
   $("btn-merge-all").hidden = state.pack.albums.length < 2;
+  renderBulkGenre();
+  refreshChrome();
 }
 
 // ---------------------------------------------------------------------------
 // Paso 4: generar
 // ---------------------------------------------------------------------------
+function blockers() {
+  const out = [];
+  if (!packOk()) out.push(t("build.fixName"));
+  if (!allTracks().length) out.push(t("build.fixMusic"));
+  else if (badAlbums().length) out.push(t("build.fixAlbums"));
+  return out;
+}
+
 function renderBuild() {
+  const albums = state.pack.albums;
+  const stat = (n, label) => el("div", { class: "stat" }, [el("b", { text: String(n) }), el("span", { text: label })]);
+  $("review").replaceChildren(
+    stat(albums.length, t("stat.albums")),
+    stat(allTracks().length, t("stat.tracks")),
+    stat(albums.filter((a) => a.formats.includes("cd")).length, t("stat.cd")),
+    stat(albums.filter((a) => a.formats.includes("cassette")).length, t("stat.cassette")),
+  );
   $("no-folders").hidden = canWriteFolders;
   document.querySelectorAll("[data-needs-folders]").forEach((d) => {
     d.classList.toggle("disabled", !canWriteFolders);
@@ -564,21 +762,36 @@ function renderBuild() {
   });
   if (!canWriteFolders) document.querySelector("input[name=dest][value=zip]").checked = true;
   $("dest-same").hidden = !state.opened;
-  if (state.opened) $("dest-same-label").textContent = state.opened.label;
-  const blocked = !validatePackId() || !allTracks().length || state.pack.albums.some((a) => albumWarnings(a).length);
-  $("build-blocked").hidden = !blocked;
-  $("btn-build").disabled = blocked || state.building;
+  if (state.opened) {
+    $("dest-same-label").textContent = state.opened.label;
+    if (!state.building && !state.built) document.querySelector("input[name=dest][value=same]").checked = true;
+  }
+  const blocks = blockers();
+  $("build-blocked").hidden = !blocks.length;
+  $("build-blocked").textContent = blocks.length ? t("build.fixFirst", blocks.join(" · ")) : "";
+  $("btn-build").disabled = !!blocks.length || state.building;
+  refreshChrome();
 }
 
 function log(text, isError) {
-  const li = el("li", { class: isError ? "err" : "", text });
-  $("log").prepend(li);
+  $("log").prepend(el("li", { class: isError ? "err" : "", text }));
 }
 
 function progress(fraction, text) {
+  const pct = Math.round(Math.max(0, Math.min(1, fraction)) * 100);
   $("progress").hidden = false;
-  $("progress-fill").style.width = `${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%`;
+  $("progress-fill").style.width = `${pct}%`;
+  $("progress-pct").textContent = `${pct}%`;
   if (text !== undefined) $("progress-text").textContent = text;
+}
+
+function showSuccess(dest) {
+  const name = state.pack.name || state.pack.id;
+  const key = dest === "workshop" ? "next.workshop" : dest === "zip" ? "next.zip" : "next.mods";
+  $("success-title").textContent = t("build.success");
+  $("next-list").replaceChildren(...t(key, name, state.pack.id).split("|").map((s) => el("li", { text: s })));
+  $("next-steps").hidden = false;
+  $("next-steps").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 async function chooseDestination(dest) {
@@ -619,9 +832,11 @@ async function build() {
   $("btn-build").disabled = true;
   $("btn-cancel").hidden = false;
   $("next-steps").hidden = true;
+  $("progress-hint").hidden = false;
   $("log").replaceChildren();
   const paths = gen.paths(pack.id);
   const mod = target.mod;
+  let ok = false;
 
   try {
     progress(0, t("build.loading"));
@@ -711,9 +926,9 @@ async function build() {
       for (const tr of allTracks()) { tr.existing = true; tr.file = null; }
     }
     state.dirty = false;
+    state.built = true;
+    ok = true;
     progress(1, t("build.done", converted));
-    const next = dest === "workshop" ? t("next.workshop", pack.id) : dest === "zip" ? t("next.zip") : t("next.mods", pack.name || pack.id);
-    notice("next-steps", next);
   } catch (e) {
     if (e.message === "cancel") {
       progress(0, t("build.cancelled"));
@@ -724,8 +939,9 @@ async function build() {
   } finally {
     state.building = false;
     $("btn-cancel").hidden = true;
+    $("progress-hint").hidden = true;
     renderBuild();
-    renderAlbums();
+    if (ok) showSuccess(dest);
   }
 }
 
@@ -735,8 +951,11 @@ async function build() {
 function applyLanguage() {
   applyStatic();
   document.querySelectorAll(".lang button").forEach((b) => b.classList.toggle("active", b.dataset.lang === getLang()));
+  if (state.step === "music") renderAdded();
   if (state.step === "albums") renderAlbums();
   if (state.step === "build") renderBuild();
+  if (!$("next-steps").hidden) showSuccess(document.querySelector("input[name=dest]:checked").value);
+  refreshChrome();
 }
 
 function init() {
@@ -744,10 +963,23 @@ function init() {
   applyLanguage();
   syncPackForm();
 
+  if (MOD_URL) { $("link-mod").href = MOD_URL; $("link-mod").hidden = false; }
+
   document.querySelectorAll(".lang button").forEach((b) => b.addEventListener("click", () => { setLang(b.dataset.lang); applyLanguage(); }));
   document.querySelectorAll("#steps button").forEach((b) => b.addEventListener("click", () => showStep(b.dataset.step)));
   document.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => showStep(b.dataset.goto)));
+  $("nav-next").addEventListener("click", goNext);
+  $("nav-back").addEventListener("click", goBack);
 
+  // portada
+  $("btn-start").addEventListener("click", () => showWizard("pack"));
+  $("btn-start-2").addEventListener("click", () => showWizard("pack"));
+  $("btn-home-open").hidden = !canWriteFolders;
+  $("btn-home-open").addEventListener("click", async () => { showWizard("pack"); await openExistingPack(); });
+  $("brand-home").addEventListener("click", () => showHome());
+  $("link-faq").addEventListener("click", (e) => { e.preventDefault(); showHome("faq"); });
+
+  // paso 1
   $("pack-name").addEventListener("input", (e) => {
     state.pack.name = e.target.value;
     if (!state.idTouched) {
@@ -756,45 +988,64 @@ function init() {
     }
     validatePackId();
     markDirty();
+    refreshChrome();
   });
+  $("pack-name").addEventListener("keydown", (e) => { if (e.key === "Enter" && packOk()) goNext(); });
   $("pack-id").addEventListener("input", (e) => {
     state.idTouched = true;
     state.pack.id = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
     e.target.value = state.pack.id;
     validatePackId();
     markDirty();
+    refreshChrome();
   });
   $("pack-author").addEventListener("input", (e) => { state.pack.author = e.target.value; markDirty(); });
   $("pack-desc").addEventListener("input", (e) => { state.pack.description = e.target.value; markDirty(); });
   $("btn-new").addEventListener("click", () => {
     if (state.dirty && !confirm(t("unload"))) return;
     resetPack();
+    toast(t("pack.newDone"));
+    $("pack-name").focus();
   });
   $("btn-open").hidden = !canWriteFolders;
-  $("open-hint").hidden = !canWriteFolders;
   $("btn-open").addEventListener("click", openExistingPack);
+
+  // paso 3
   $("btn-merge-all").addEventListener("click", mergeAllAlbums);
   $("btn-new-album").addEventListener("click", () => {
-    state.pack.albums.unshift(newAlbum());
+    state.pack.albums.unshift(newAlbum({ open: true }));
+    markDirty();
+    renderAlbums();
+  });
+  $("bulk-genre").addEventListener("change", (e) => {
+    if (!e.target.value) return;
+    for (const a of state.pack.albums) if (!a.genre) a.genre = e.target.value;
     markDirty();
     renderAlbums();
   });
 
-  setupDropzone();
-  setupYouTube();
+  // paso 4
   $("btn-build").addEventListener("click", build);
   $("btn-cancel").addEventListener("click", () => { state.cancel = true; });
+  $("btn-another").addEventListener("click", () => {
+    resetPack();
+    showStep("pack");
+  });
+
+  setupDropzone();
+  setupTabs();
+  setupYouTube();
   window.addEventListener("beforeunload", (e) => {
     if (state.dirty || state.building) {
       e.preventDefault();
       e.returnValue = t("unload");
     }
   });
-  showStep("pack");
+  showHome();
 
   // Ganchos para pruebas automáticas (solo al abrir la web en tu propio PC)
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {
-    window.KSSDebug = { state, addFiles, build, renderAlbums, showStep, syncPackForm, lastZip: null, noDownload: true };
+    window.KSSDebug = { state, addFiles, build, renderAlbums, showStep, showWizard, showHome, syncPackForm, lastZip: null, noDownload: true };
   }
 }
 
