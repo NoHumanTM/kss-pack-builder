@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KSS Pack Builder</title>
+  <meta name="description" content="Create music packs for Knox Sound System, a Project Zomboid Build 42 mod. Runs entirely in your browser.">
+  <link rel="icon" href="img/icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="vendor/jsmediatags.min.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="img/icon.png" alt="" class="brand-icon">
+      <div>
+        <h1>KSS Pack Builder</h1>
+        <p class="subtitle" data-i18n="app.subtitle"></p>
+      </div>
+    </div>
+    <div class="lang">
+      <button type="button" data-lang="es">ES</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </header>
+
+  <nav class="steps" id="steps">
+    <button type="button" data-step="pack" data-i18n="step.pack"></button>
+    <button type="button" data-step="music" data-i18n="step.music"></button>
+    <button type="button" data-step="albums" data-i18n="step.albums"></button>
+    <button type="button" data-step="build" data-i18n="step.build"></button>
+  </nav>
+
+  <main>
+    <p class="privacy" data-i18n="app.privacy"></p>
+
+    <!-- 1. Pack -->
+    <section class="panel" id="step-pack">
+      <h2 data-i18n="pack.title"></h2>
+      <div class="actions-row">
+        <button type="button" class="btn" id="btn-new" data-i18n="pack.new"></button>
+        <button type="button" class="btn" id="btn-open" data-i18n="pack.open"></button>
+      </div>
+      <p class="hint" id="open-hint" data-i18n="pack.openHint"></p>
+      <p class="notice" id="pack-notice" hidden></p>
+      <div class="form-grid">
+        <label><span data-i18n="pack.name"></span>
+          <input type="text" id="pack-name" maxlength="80" data-i18n-ph="pack.namePh"></label>
+        <label><span data-i18n="pack.id"></span>
+          <input type="text" id="pack-id" maxlength="32" spellcheck="false">
+          <small data-i18n="pack.idHint"></small></label>
+        <label><span data-i18n="pack.author"></span>
+          <input type="text" id="pack-author" maxlength="60"></label>
+        <label class="wide"><span data-i18n="pack.description"></span>
+          <textarea id="pack-desc" rows="2" maxlength="300"></textarea></label>
+      </div>
+      <div class="nav-row"><span></span><button type="button" class="btn primary" data-goto="music" data-i18n="common.next"></button></div>
+    </section>
+
+    <!-- 2. Música -->
+    <section class="panel" id="step-music" hidden>
+      <h2 data-i18n="music.title"></h2>
+      <div class="dropzone" id="dropzone" tabindex="0">
+        <div class="drop-icon">♫</div>
+        <p class="drop-title" data-i18n="music.drop"></p>
+        <p class="hint" data-i18n="music.dropSub"></p>
+        <div class="actions-row center">
+          <label class="btn" for="files-input" data-i18n="music.files"></label>
+          <label class="btn" for="folder-input" data-i18n="music.folder"></label>
+        </div>
+        <input type="file" id="files-input" multiple hidden>
+        <input type="file" id="folder-input" webkitdirectory multiple hidden>
+      </div>
+      <p class="notice" id="music-notice" hidden></p>
+
+      <details class="youtube" id="youtube">
+        <summary data-i18n="yt.title"></summary>
+        <p data-i18n="yt.intro"></p>
+        <label class="yt-url"><span data-i18n="yt.url"></span>
+          <input type="url" id="yt-url" data-i18n-ph="yt.urlPh"></label>
+        <div class="yt-options" id="yt-options" hidden>
+          <label><input type="radio" name="yt-mode" value="playlist" checked> <span data-i18n="yt.modePlaylist"></span></label>
+          <label><input type="radio" name="yt-mode" value="video"> <span data-i18n="yt.modeVideo"></span></label>
+          <label class="yt-shell"><span data-i18n="yt.shell"></span>
+            <select id="yt-shell"><option value="powershell">PowerShell (Windows)</option><option value="bash">bash / zsh (Mac, Linux)</option></select></label>
+        </div>
+        <p class="warn-text" id="yt-invalid" hidden data-i18n="yt.invalid"></p>
+        <div class="command" id="yt-command-box" hidden>
+          <code id="yt-command"></code>
+          <button type="button" class="btn small" id="yt-copy" data-i18n="yt.copy"></button>
+        </div>
+        <p class="hint" data-i18n="yt.steps"></p>
+        <p class="hint"><span data-i18n="yt.install"></span> <code>winget install yt-dlp</code> · <code>brew install yt-dlp ffmpeg</code></p>
+        <p class="legal" data-i18n="yt.legal"></p>
+      </details>
+      <div class="nav-row">
+        <button type="button" class="btn" data-goto="pack" data-i18n="common.back"></button>
+        <button type="button" class="btn primary" data-goto="albums" data-i18n="common.next"></button>
+      </div>
+    </section>
+
+    <!-- 3. Álbumes -->
+    <section class="panel" id="step-albums" hidden>
+      <div class="albums-head">
+        <h2 data-i18n="albums.title"></h2>
+        <span class="summary" id="albums-summary"></span>
+        <button type="button" class="btn small" id="btn-new-album" data-i18n="albums.newAlbum"></button>
+      </div>
+      <p class="hint" id="albums-empty" data-i18n="albums.empty"></p>
+      <div class="albums" id="albums"></div>
+      <div class="nav-row">
+        <button type="button" class="btn" data-goto="music" data-i18n="common.back"></button>
+        <button type="button" class="btn primary" data-goto="build" data-i18n="common.next"></button>
+      </div>
+    </section>
+
+    <!-- 4. Generar -->
+    <section class="panel" id="step-build" hidden>
+      <h2 data-i18n="build.title"></h2>
+      <label class="check"><input type="checkbox" id="opt-normalize" checked> <span data-i18n="build.normalize"></span></label>
+      <h3 data-i18n="build.dest"></h3>
+      <div class="dests" id="dests">
+        <label class="dest" data-needs-folders><input type="radio" name="dest" value="mods" checked>
+          <span><b data-i18n="build.destMods"></b><small data-i18n="build.destModsHint"></small></span></label>
+        <label class="dest" data-needs-folders><input type="radio" name="dest" value="workshop">
+          <span><b data-i18n="build.destWorkshop"></b><small data-i18n="build.destWorkshopHint"></small></span></label>
+        <label class="dest" id="dest-same" hidden><input type="radio" name="dest" value="same">
+          <span><b data-i18n="build.destSame"></b><small id="dest-same-label"></small></span></label>
+        <label class="dest"><input type="radio" name="dest" value="zip">
+          <span><b data-i18n="build.destZip"></b><small data-i18n="build.destZipHint"></small></span></label>
+      </div>
+      <p class="warn-text" id="no-folders" hidden data-i18n="build.noFolders"></p>
+      <p class="warn-text" id="build-blocked" hidden data-i18n="build.fixFirst"></p>
+      <div class="actions-row">
+        <button type="button" class="btn primary big" id="btn-build" data-i18n="build.start"></button>
+        <button type="button" class="btn" id="btn-cancel" hidden data-i18n="build.cancel"></button>
+      </div>
+      <div class="progress" id="progress" hidden>
+        <div class="bar"><div class="fill" id="progress-fill"></div></div>
+        <p id="progress-text"></p>
+      </div>
+      <ul class="log" id="log"></ul>
+      <p class="notice success" id="next-steps" hidden></p>
+      <div class="nav-row"><button type="button" class="btn" data-goto="albums" data-i18n="common.back"></button><span></span></div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Knox Sound System · KSS Pack Builder</span>
+    <span>ffmpeg.wasm (GPL) · jsmediatags · JSZip — <a href="THIRD_PARTY_NOTICES.md">licenses</a></span>
+  </footer>
+</body>
+</html>
