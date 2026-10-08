@@ -465,6 +465,41 @@ function renderAlbum(album) {
   return card;
 }
 
+// Junta todas las pistas de todos los álbumes en un único álbum "Mix"
+function mergeAllAlbums() {
+  const albums = state.pack.albums;
+  if (albums.length < 2) return;
+  const total = albums.reduce((n, a) => n + a.tracks.length, 0);
+  if (!confirm(t("albums.mergeConfirm", albums.length, total))) return;
+
+  const genreCount = new Map();
+  for (const a of albums) if (a.genre) genreCount.set(a.genre, (genreCount.get(a.genre) || 0) + a.tracks.length);
+  const genre = [...genreCount.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] || null;
+  const withCover = albums.find((a) => a.coverBlob);
+
+  const mix = newAlbum({
+    title: t("albums.mixTitle"),
+    artist: t("albums.mixArtist"),
+    genre,
+    formats: [...new Set(albums.flatMap((a) => a.formats))],
+  });
+  if (withCover) setCover(mix, withCover.coverBlob);
+  for (const a of albums) {
+    for (const track of a.tracks) {
+      // conserva el artista en el título si no está ya
+      const artist = a.artist && a.artist.trim();
+      if (artist && !track.title.toLowerCase().startsWith(artist.toLowerCase())) {
+        track.title = `${artist} - ${track.title}`;
+      }
+      mix.tracks.push(track);
+    }
+    if (a !== withCover) setCover(a, null);
+  }
+  state.pack.albums = [mix];
+  markDirty();
+  renderAlbums();
+}
+
 function renderAlbums() {
   // quita álbumes vacíos que se quedaron sin pistas al moverlas (salvo si se crearon a mano)
   const container = $("albums");
@@ -474,6 +509,7 @@ function renderAlbums() {
   $("albums-summary").textContent = t("albums.summary", state.pack.albums.length, tracks.length,
     total ? formatTime(total) : "—");
   $("albums-empty").hidden = state.pack.albums.length > 0;
+  $("btn-merge-all").hidden = state.pack.albums.length < 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -696,6 +732,7 @@ function init() {
   $("btn-open").hidden = !canWriteFolders;
   $("open-hint").hidden = !canWriteFolders;
   $("btn-open").addEventListener("click", openExistingPack);
+  $("btn-merge-all").addEventListener("click", mergeAllAlbums);
   $("btn-new-album").addEventListener("click", () => {
     state.pack.albums.unshift(newAlbum());
     markDirty();
