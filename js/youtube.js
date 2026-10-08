@@ -3,18 +3,26 @@
 // el usuario lo ejecute en su PC. Las playlists salen como un álbum (carpeta = nombre de la playlist,
 // número de pista = posición en la playlist), con título, artista y miniatura como carátula.
 
+// Acepta enlaces con o sin https://, con texto alrededor, youtu.be, Shorts, directos e incrustados
 export function parseYouTubeUrl(text) {
+  const found = /((?:https?:\/\/)?(?:[a-z0-9-]+\.)*(?:youtube\.com|youtu\.be)\/[^\s"'<>]*)/i.exec(String(text || ""));
+  if (!found) return null;
+  let raw = found[1];
+  if (!/^https?:\/\//i.test(raw)) raw = "https://" + raw;
   let url;
   try {
-    url = new URL(String(text).trim());
+    url = new URL(raw);
   } catch (e) {
     return null;
   }
-  const host = url.hostname.replace(/^www\.|^m\.|^music\./, "");
+  const host = url.hostname.toLowerCase().replace(/^(www|m|music)\./, "");
   if (!["youtube.com", "youtu.be"].includes(host)) return null;
   const list = url.searchParams.get("list");
   let video = url.searchParams.get("v");
-  if (host === "youtu.be") video = url.pathname.slice(1) || null;
+  const path = /^\/(shorts|live|embed|v)\/([^/?#]+)/.exec(url.pathname);
+  if (path) video = path[2];
+  if (host === "youtu.be") video = url.pathname.slice(1).split("/")[0] || null;
+  if (!list && !video) return null;
   return {
     url: url.href,
     isPlaylist: !!list && (!video || url.pathname.startsWith("/playlist")),

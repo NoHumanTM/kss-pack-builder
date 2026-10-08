@@ -232,6 +232,8 @@ function setupDropzone() {
   $("folder-input").addEventListener("change", async (e) => { await addFiles(Array.from(e.target.files)); e.target.value = ""; });
 }
 
+let lastYouTubeUrl = null;
+
 function setupYouTube() {
   const update = () => {
     const info = parseYouTubeUrl($("yt-url").value);
@@ -243,12 +245,24 @@ function setupYouTube() {
     const radios = document.querySelectorAll("input[name=yt-mode]");
     radios[0].disabled = !info.hasPlaylist;
     radios[1].disabled = !info.hasVideo;
+    if (info.url !== lastYouTubeUrl) {
+      // enlace nuevo: por defecto toda la playlist si la hay
+      lastYouTubeUrl = info.url;
+      radios[info.hasPlaylist ? 0 : 1].checked = true;
+    }
     if (!info.hasPlaylist) radios[1].checked = true;
     if (!info.hasVideo) radios[0].checked = true;
     const mode = document.querySelector("input[name=yt-mode]:checked").value;
     $("yt-command").textContent = buildCommand(info, mode, $("yt-shell").value);
   };
-  $("yt-url").addEventListener("input", update);
+  // se actualiza al escribir, pegar, soltar una tecla, salir del campo o pulsar el botón / Enter
+  for (const ev of ["input", "change", "keyup", "blur"]) $("yt-url").addEventListener(ev, update);
+  $("yt-url").addEventListener("paste", () => setTimeout(update, 0));
+  $("yt-url").addEventListener("keydown", (e) => { if (e.key === "Enter") update(); });
+  $("yt-go").addEventListener("click", () => {
+    update();
+    if (!$("yt-command-box").hidden) $("yt-command-box").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
   document.querySelectorAll("input[name=yt-mode]").forEach((r) => r.addEventListener("change", update));
   $("yt-shell").addEventListener("change", update);
   if (/mac|linux/i.test(navigator.platform)) $("yt-shell").value = "bash";

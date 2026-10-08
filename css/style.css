@@ -106,7 +106,9 @@ small { color: var(--muted); font-size: 12px; }
 /* YouTube */
 .youtube { margin-top: 16px; background: var(--panel-2); border-radius: var(--radius); padding: 10px 14px; }
 .youtube summary { cursor: pointer; font-weight: 600; }
-.yt-url { display: block; margin: 8px 0; }
+.yt-url { display: block; margin: 8px 0 0; }
+.yt-row { display: flex; gap: 8px; margin: 0 0 8px; }
+.yt-row input { flex: 1; }
 .yt-options { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 8px 0; }
 .yt-shell { display: flex; gap: 6px; align-items: center; }
 .yt-shell span { margin: 0; }

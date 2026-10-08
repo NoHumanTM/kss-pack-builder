@@ -78,8 +78,11 @@
       <details class="youtube" id="youtube">
         <summary data-i18n="yt.title"></summary>
         <p data-i18n="yt.intro"></p>
-        <label class="yt-url"><span data-i18n="yt.url"></span>
-          <input type="url" id="yt-url" data-i18n-ph="yt.urlPh"></label>
+        <label class="yt-url"><span data-i18n="yt.url"></span></label>
+        <div class="yt-row">
+          <input type="text" id="yt-url" inputmode="url" autocomplete="off" spellcheck="false" data-i18n-ph="yt.urlPh">
+          <button type="button" class="btn primary" id="yt-go" data-i18n="yt.go"></button>
+        </div>
         <div class="yt-options" id="yt-options" hidden>
           <label><input type="radio" name="yt-mode" value="playlist" checked> <span data-i18n="yt.modePlaylist"></span></label>
           <label><input type="radio" name="yt-mode" value="video"> <span data-i18n="yt.modeVideo"></span></label>
