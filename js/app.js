@@ -155,18 +155,33 @@ function refreshChrome() {
 // ---------------------------------------------------------------------------
 // Vistas: portada y asistente
 // ---------------------------------------------------------------------------
+function setView(view) {
+  if (view !== state.view) state.prevView = state.view;
+  state.view = view;
+  for (const v of ["home", "guide", "wizard"]) $(v).hidden = v !== view;
+}
+
 function showHome(anchor) {
-  state.view = "home";
-  $("home").hidden = false;
-  $("wizard").hidden = true;
+  setView("home");
   if (anchor) $(anchor).scrollIntoView({ behavior: "smooth" });
   else window.scrollTo({ top: 0 });
 }
 
+// Guía de multijugador. Usa el ID del pack actual en los ejemplos (o "yourpack")
+function showGuide(anchor) {
+  setView("guide");
+  renderGuideIds();
+  if (anchor) $(anchor).scrollIntoView({ behavior: "smooth" });
+  else window.scrollTo({ top: 0 });
+}
+
+function renderGuideIds() {
+  const id = PACK_ID_RE.test(state.pack.id) ? state.pack.id : "yourpack";
+  document.querySelectorAll(".pid").forEach((n) => { n.textContent = id; });
+}
+
 function showWizard(step = state.step) {
-  state.view = "wizard";
-  $("home").hidden = true;
-  $("wizard").hidden = false;
+  setView("wizard");
   showStep(step);
 }
 
@@ -785,10 +800,14 @@ function progress(fraction, text) {
   if (text !== undefined) $("progress-text").textContent = text;
 }
 
-function showSuccess(dest) {
+function showSuccess(dest, savedPath = state.savedPath) {
+  state.savedPath = savedPath;
   const name = state.pack.name || state.pack.id;
   const key = dest === "workshop" ? "next.workshop" : dest === "zip" ? "next.zip" : "next.mods";
   $("success-title").textContent = t("build.success");
+  $("saved-at").hidden = !savedPath;
+  $("saved-at-text").textContent = savedPath ? t("build.savedAt", savedPath) : "";
+  $("btn-guide").classList.toggle("primary", dest === "workshop");
   $("next-list").replaceChildren(...t(key, name, state.pack.id).split("|").map((s) => el("li", { text: s })));
   $("next-steps").hidden = false;
   $("next-steps").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -800,19 +819,19 @@ async function chooseDestination(dest) {
   if (dest === "mods") {
     const { writer, label, unusual } = await pickZomboidFolder("mods");
     if (unusual) log(t("build.unusualFolder", label));
-    return { mod: new SubWriter(writer, modName), base: null, label, isFolder: true };
+    return { mod: new SubWriter(writer, modName), base: null, label, isFolder: true, path: `${label}/${modName}` };
   }
   if (dest === "workshop") {
     const { writer, label, unusual } = await pickZomboidFolder("Workshop");
     if (unusual) log(t("build.unusualFolder", label));
     const base = new SubWriter(writer, modName);
-    return { mod: new SubWriter(base, `Contents/mods/${modName}`), base, label, isFolder: true };
+    return { mod: new SubWriter(base, `Contents/mods/${modName}`), base, label, isFolder: true, path: `${label}/${modName}` };
   }
   if (dest === "same") {
-    return { mod: state.opened.writer, base: null, label: state.opened.label, isFolder: true, same: true };
+    return { mod: state.opened.writer, base: null, label: state.opened.label, isFolder: true, same: true, path: state.opened.label };
   }
   const zip = new ZipWriter(`${modName}.zip`);
-  return { mod: new SubWriter(zip, modName), base: null, zip, isFolder: false };
+  return { mod: new SubWriter(zip, modName), base: null, zip, isFolder: false, path: `${modName}.zip` };
 }
 
 async function build() {
@@ -905,7 +924,9 @@ async function build() {
     await mod.write(paths.manifest, gen.manifest(out));
     await mod.write(paths.poster, await makePreview(coverPngs, pack.name || pack.id, 512));
     if (target.base) {
-      await target.base.write("workshop.txt", gen.workshopTxt(out));
+      let previous = "";
+      try { previous = await (await target.base.read("workshop.txt")).text(); } catch (e) { /* primera vez */ }
+      await target.base.write("workshop.txt", gen.workshopTxt(out, previous));
       await target.base.write("preview.png", await makePreview(coverPngs, pack.name || pack.id, 256));
     }
     if (target.isFolder) {
@@ -941,7 +962,7 @@ async function build() {
     $("btn-cancel").hidden = true;
     $("progress-hint").hidden = true;
     renderBuild();
-    if (ok) showSuccess(dest);
+    if (ok) showSuccess(dest, target.path);
   }
 }
 
@@ -972,11 +993,25 @@ function init() {
   $("nav-back").addEventListener("click", goBack);
 
   // portada
-  $("btn-start").addEventListener("click", () => showWizard("pack"));
-  $("btn-start-2").addEventListener("click", () => showWizard("pack"));
+  document.querySelectorAll("[data-start]").forEach((b) => b.addEventListener("click", () => showWizard("pack")));
+  document.querySelectorAll("[data-show]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (a.dataset.show === "guide") { history.replaceState(null, "", "#online"); showGuide(); }
+    else {
+      history.replaceState(null, "", location.pathname);
+      // "Atrás" en la guía vuelve al asistente si venías de él
+      if (a.classList.contains("back-link") && state.prevView === "wizard") showWizard();
+      else showHome();
+    }
+  }));
+  // dentro de la guía, los enlaces del índice saltan a cada paso sin cambiar de vista
+  document.querySelectorAll(".guide-toc a").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    $(a.getAttribute("href").slice(1)).scrollIntoView({ behavior: "smooth" });
+  }));
   $("btn-home-open").hidden = !canWriteFolders;
   $("btn-home-open").addEventListener("click", async () => { showWizard("pack"); await openExistingPack(); });
-  $("brand-home").addEventListener("click", () => showHome());
+  $("brand-home").addEventListener("click", () => { history.replaceState(null, "", location.pathname); showHome(); });
   $("link-faq").addEventListener("click", (e) => { e.preventDefault(); showHome("faq"); });
 
   // paso 1
@@ -1041,7 +1076,9 @@ function init() {
       e.returnValue = t("unload");
     }
   });
-  showHome();
+  // enlace directo a la guía: .../kss-pack-builder/#online
+  if (location.hash === "#online") showGuide();
+  else showHome();
 
   // Ganchos para pruebas automáticas (solo al abrir la web en tu propio PC)
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {

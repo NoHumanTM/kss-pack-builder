@@ -13,24 +13,24 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="img/icon.png">
   <!-- VERSION: cámbiala en todas las líneas (python bump_version.py) para que los navegadores no mezclen archivos viejos y nuevos -->
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=9">
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=7",
-      "./js/constants.js": "./js/constants.js?v=7",
-      "./js/convert.js": "./js/convert.js?v=7",
-      "./js/i18n.js": "./js/i18n.js?v=7",
-      "./js/output.js": "./js/output.js?v=7",
-      "./js/packgen.js": "./js/packgen.js?v=7",
-      "./js/tags.js": "./js/tags.js?v=7",
-      "./js/youtube.js": "./js/youtube.js?v=7"
+      "./js/app.js": "./js/app.js?v=9",
+      "./js/constants.js": "./js/constants.js?v=9",
+      "./js/convert.js": "./js/convert.js?v=9",
+      "./js/i18n.js": "./js/i18n.js?v=9",
+      "./js/output.js": "./js/output.js?v=9",
+      "./js/packgen.js": "./js/packgen.js?v=9",
+      "./js/tags.js": "./js/tags.js?v=9",
+      "./js/youtube.js": "./js/youtube.js?v=9"
     }
   }
   </script>
   <script src="vendor/jsmediatags.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script type="module" src="js/app.js?v=7"></script>
+  <script type="module" src="js/app.js?v=9"></script>
 </head>
 <body>
   <!-- Iconos -->
@@ -54,6 +54,7 @@
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M21 16l-5-5-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </svg>
 
@@ -67,6 +68,7 @@
         </span>
       </button>
       <nav class="top-links">
+        <a href="#online" data-show="guide" data-i18n="nav.online"></a>
         <a href="#faq" id="link-faq" data-i18n="nav.help"></a>
         <a href="" id="link-mod" target="_blank" rel="noopener" hidden><span data-i18n="nav.mod"></span><svg class="ic xs"><use href="#i-external"/></svg></a>
         <div class="lang" role="group" aria-label="Language">
@@ -85,7 +87,7 @@
         <h1 data-i18n="home.title"></h1>
         <p class="lead" data-i18n="home.lead"></p>
         <div class="hero-actions">
-          <button type="button" class="btn primary big" id="btn-start"><span data-i18n="home.start"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
+          <button type="button" class="btn primary big" id="btn-start" data-start><span data-i18n="home.start"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
           <button type="button" class="btn ghost big" id="btn-home-open" data-i18n="home.edit"></button>
         </div>
         <ul class="trust">
@@ -106,6 +108,12 @@
       <li><span class="how-num">3</span><svg class="ic lg"><use href="#i-gamepad"/></svg><h3 data-i18n="home.how3t"></h3><p data-i18n="home.how3"></p></li>
     </ol>
 
+    <a class="online-card" href="#online" data-show="guide">
+      <svg class="ic lg"><use href="#i-globe"/></svg>
+      <span><b data-i18n="home.onlineT"></b><small data-i18n="home.online"></small></span>
+      <svg class="ic"><use href="#i-chevron"/></svg>
+    </a>
+
     <div class="gallery">
       <figure><img src="img/shot-models.jpg" alt="" loading="lazy" width="1280" height="720"><figcaption data-i18n="home.shot1"></figcaption></figure>
       <figure><img src="img/shot-walkbox.jpg" alt="" loading="lazy" width="1280" height="720"><figcaption data-i18n="home.shot2"></figcaption></figure>
@@ -118,14 +126,126 @@
       <details><summary data-i18n="faq.q2"></summary><p data-i18n="faq.a2"></p></details>
       <details><summary data-i18n="faq.q3"></summary><p data-i18n="faq.a3"></p></details>
       <details><summary data-i18n="faq.q4"></summary><p data-i18n="faq.a4"></p></details>
-      <details><summary data-i18n="faq.q5"></summary><p data-i18n="faq.a5"></p></details>
+      <details><summary data-i18n="faq.q5"></summary><p data-i18n="faq.a5"></p><p><a href="#online" data-show="guide" data-i18n="faq.a5link"></a></p></details>
       <details><summary data-i18n="faq.q6"></summary><p data-i18n="faq.a6"></p></details>
       <details><summary data-i18n="faq.q7"></summary><p data-i18n="faq.a7"></p></details>
     </div>
 
     <div class="cta">
       <p data-i18n="home.ctaText"></p>
-      <button type="button" class="btn primary big" id="btn-start-2"><span data-i18n="home.start"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
+      <button type="button" class="btn primary big" id="btn-start-2" data-start><span data-i18n="home.start"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
+    </div>
+  </section>
+
+  <!-- ===================== Guía: jugar online ===================== -->
+  <section id="guide" class="guide" hidden>
+    <div class="guide-head">
+      <a href="#" class="back-link" data-show="home"><svg class="ic sm flip"><use href="#i-chevron"/></svg><span data-i18n="common.back"></span></a>
+      <span class="eyebrow"><svg class="ic xs"><use href="#i-globe"/></svg> <span data-i18n="g.eyebrow"></span></span>
+      <h1 data-i18n="g.title"></h1>
+      <p class="lead" data-i18n="g.lead"></p>
+      <ol class="guide-toc">
+        <li><a href="#g1"><span class="n">1</span><span data-i18n="g.s1t"></span></a></li>
+        <li><a href="#g2"><span class="n">2</span><span data-i18n="g.s2t"></span></a></li>
+        <li><a href="#g3"><span class="n">3</span><span data-i18n="g.s3t"></span></a></li>
+        <li><a href="#g4"><span class="n">4</span><span data-i18n="g.s4t"></span></a></li>
+        <li><a href="#g5"><span class="n">5</span><span data-i18n="g.s5t"></span></a></li>
+        <li><a href="#g6"><span class="n">6</span><span data-i18n="g.s6t"></span></a></li>
+      </ol>
+    </div>
+
+    <ol class="guide-steps">
+      <li id="g1">
+        <h2 data-i18n="g.s1t"></h2>
+        <p data-i18n="g.s1"></p>
+        <div class="tree" aria-label="Folder structure">
+          <div class="row"><svg class="ic sm"><use href="#i-folder"/></svg><b>Zomboid</b><small data-i18n="g.treeZomboid"></small></div>
+          <div class="row l1"><svg class="ic sm"><use href="#i-folder"/></svg><b>Workshop</b></div>
+          <div class="row l2 hl"><svg class="ic sm"><use href="#i-folder"/></svg><b>KSS_Pack_<span class="pid"></span></b><small data-i18n="g.treeUpload"></small></div>
+          <div class="row l3"><svg class="ic sm"><use href="#i-file"/></svg><span>workshop.txt</span><small data-i18n="g.treeTxt"></small></div>
+          <div class="row l3"><svg class="ic sm"><use href="#i-image"/></svg><span>preview.png</span><small data-i18n="g.treePreview"></small></div>
+          <div class="row l3"><svg class="ic sm"><use href="#i-folder"/></svg><span>Contents/mods/KSS_Pack_<span class="pid"></span></span><small data-i18n="g.treeMod"></small></div>
+        </div>
+        <div class="callout">
+          <svg class="ic sm"><use href="#i-spark"/></svg>
+          <div><b data-i18n="g.s1alreadyT"></b><p data-i18n="g.s1already"></p></div>
+        </div>
+      </li>
+
+      <li id="g2">
+        <h2 data-i18n="g.s2t"></h2>
+        <ol class="sub">
+          <li data-i18n="g.s2a"></li>
+          <li data-i18n="g.s2b"></li>
+          <li data-i18n="g.s2c"></li>
+        </ol>
+      </li>
+
+      <li id="g3">
+        <h2 data-i18n="g.s3t"></h2>
+        <p data-i18n="g.s3"></p>
+        <div class="vis">
+          <div class="vis-row good"><b data-i18n="g.visUnlisted"></b><span data-i18n="g.visUnlistedD"></span><em class="badge" data-i18n="build.recommended"></em></div>
+          <div class="vis-row good"><b data-i18n="g.visFriends"></b><span data-i18n="g.visFriendsD"></span></div>
+          <div class="vis-row"><b data-i18n="g.visPublic"></b><span data-i18n="g.visPublicD"></span></div>
+          <div class="vis-row bad"><b data-i18n="g.visHidden"></b><span data-i18n="g.visHiddenD"></span></div>
+        </div>
+        <p data-i18n="g.s3b"></p>
+        <p class="hint" data-i18n="g.s3legal"></p>
+      </li>
+
+      <li id="g4">
+        <h2 data-i18n="g.s4t"></h2>
+        <ol class="sub">
+          <li data-i18n="g.s4a"></li>
+          <li data-i18n="g.s4b"></li>
+          <li data-i18n="g.s4c"></li>
+        </ol>
+        <div class="code-line"><span data-i18n="g.s4url"></span><code>steamcommunity.com/sharedfiles/filedetails/?id=<mark>1234567890</mark></code></div>
+      </li>
+
+      <li id="g5">
+        <h2 data-i18n="g.s5t"></h2>
+        <div class="two-col">
+          <div class="card">
+            <h3><svg class="ic sm"><use href="#i-gamepad"/></svg><span data-i18n="g.hostT"></span></h3>
+            <ol class="sub">
+              <li data-i18n="g.host1"></li>
+              <li data-i18n="g.host2"></li>
+              <li data-i18n="g.host3"></li>
+              <li data-i18n="g.host4"></li>
+            </ol>
+          </div>
+          <div class="card">
+            <h3><svg class="ic sm"><use href="#i-file"/></svg><span data-i18n="g.dedT"></span></h3>
+            <p data-i18n="g.ded"></p>
+            <pre class="ini"><code>WorkshopItems=3815623933;<mark data-i18n="g.yourId"></mark>
+Mods=KnoxSoundSystem;KSS_Pack_<span class="pid"></span></code></pre>
+            <p class="hint" data-i18n="g.dedHint"></p>
+          </div>
+        </div>
+        <div class="ids">
+          <div><small data-i18n="g.idsMod"></small><code>3815623933</code><code>KnoxSoundSystem</code></div>
+          <div><small data-i18n="g.idsPack"></small><code data-i18n="g.yourId"></code><code>KSS_Pack_<span class="pid"></span></code></div>
+        </div>
+      </li>
+
+      <li id="g6">
+        <h2 data-i18n="g.s6t"></h2>
+        <p data-i18n="g.s6"></p>
+        <h3 class="mini" data-i18n="g.updT"></h3>
+        <ol class="sub">
+          <li data-i18n="g.upd1"></li>
+          <li data-i18n="g.upd2"></li>
+          <li data-i18n="g.upd3"></li>
+        </ol>
+        <p class="hint" data-i18n="g.updHint"></p>
+      </li>
+    </ol>
+
+    <div class="cta">
+      <p data-i18n="g.cta"></p>
+      <button type="button" class="btn primary big" data-start><span data-i18n="home.start"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
     </div>
   </section>
 
@@ -281,7 +401,7 @@
             <span><b><span data-i18n="build.destMods"></span> <em class="badge" data-i18n="build.recommended"></em></b><small data-i18n="build.destModsHint"></small></span></label>
           <label class="dest" data-needs-folders><input type="radio" name="dest" value="workshop">
             <svg class="ic lg"><use href="#i-upload"/></svg>
-            <span><b data-i18n="build.destWorkshop"></b><small data-i18n="build.destWorkshopHint"></small></span></label>
+            <span><b data-i18n="build.destWorkshop"></b><small data-i18n="build.destWorkshopHint"></small><a href="#online" class="mini-link" data-show="guide" data-i18n="build.howUpload"></a></span></label>
           <label class="dest" id="dest-same" hidden><input type="radio" name="dest" value="same">
             <svg class="ic lg"><use href="#i-folder"/></svg>
             <span><b data-i18n="build.destSame"></b><small id="dest-same-label"></small></span></label>
@@ -309,10 +429,12 @@
         <div class="success" id="next-steps" hidden>
           <div class="success-icon"><svg class="ic xl"><use href="#i-check"/></svg></div>
           <h3 id="success-title"></h3>
+          <p class="saved-at" id="saved-at" hidden><svg class="ic sm"><use href="#i-folder"/></svg><span id="saved-at-text"></span></p>
           <ol class="next-list" id="next-list"></ol>
           <div class="actions-row center">
             <button type="button" class="btn" data-goto="albums" data-i18n="build.editMore"></button>
             <button type="button" class="btn" id="btn-another" data-i18n="build.another"></button>
+            <a href="#online" class="btn primary" id="btn-guide" data-show="guide"><svg class="ic sm"><use href="#i-globe"/></svg><span data-i18n="build.guide"></span></a>
           </div>
         </div>
       </section>

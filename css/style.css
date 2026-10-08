@@ -390,3 +390,76 @@ input.invalid { border-color: var(--red); }
   .actionbar-info { font-size: 12.5px; }
   .status { display: none; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Guía: jugar online                                                  */
+/* ------------------------------------------------------------------ */
+.online-card { display: flex; align-items: center; gap: 16px; margin: 18px 0 0; padding: 18px 20px; border-radius: var(--radius); border: 1px solid rgba(242, 169, 59, 0.35); background: linear-gradient(135deg, var(--amber-soft), rgba(95, 140, 110, 0.10)); color: var(--text); }
+.online-card:hover { text-decoration: none; border-color: var(--amber); }
+.online-card > .ic:first-child { color: var(--amber); }
+.online-card span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.online-card small { color: var(--muted); font-size: 14px; }
+.guide { max-width: 900px; width: 100%; margin: 0 auto; padding: 36px 20px 40px; flex: 1; }
+.guide-head h1 { font-size: clamp(30px, 4vw, 44px); margin: 14px 0 10px; letter-spacing: -0.4px; }
+.back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+.back-link:hover { color: var(--text); text-decoration: none; }
+.ic.flip { transform: rotate(180deg); }
+.guide-head .eyebrow { display: flex; width: max-content; }
+.guide-toc { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.guide-toc a { display: flex; gap: 10px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; color: var(--text); font-size: 14px; }
+.guide-toc a:hover { border-color: var(--amber); text-decoration: none; }
+.guide-toc .n { width: 22px; height: 22px; border-radius: 50%; background: var(--amber); color: var(--amber-ink); font-weight: 800; font-size: 12px; display: grid; place-items: center; flex: none; }
+.guide-steps { list-style: none; padding: 0; margin: 34px 0 0; counter-reset: g; display: grid; gap: 18px; }
+.guide-steps > li { min-width: 0; counter-increment: g; position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px 24px 78px; scroll-margin-top: 80px; }
+.guide-steps > li::before { content: counter(g); position: absolute; left: 22px; top: 22px; width: 38px; height: 38px; border-radius: 50%; background: var(--amber); color: var(--amber-ink); font-weight: 800; font-size: 18px; display: grid; place-items: center; box-shadow: 0 0 0 5px var(--amber-soft); }
+.guide-steps h2 { margin: 6px 0 10px; font-size: 21px; }
+.guide-steps p { color: #d2cdd8; margin: 8px 0; }
+.guide-steps .hint { color: var(--muted); }
+.guide-steps h3.mini { font-size: 15px; margin: 18px 0 6px; }
+.sub { margin: 8px 0; padding-left: 20px; display: grid; gap: 8px; color: #d2cdd8; }
+.sub li::marker { color: var(--amber); font-weight: 700; }
+.tree { background: #0d0c11; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 14px 0; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13.5px; overflow-x: auto; }
+.tree .row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; white-space: nowrap; }
+.tree .row .ic { color: var(--amber); }
+.tree .row small { color: var(--faint); font-family: var(--font); margin-left: 8px; }
+.tree .l1 { margin-left: 22px; }
+.tree .l2 { margin-left: 44px; }
+.tree .l3 { margin-left: 66px; }
+.tree .hl { background: var(--amber-soft); }
+.tree .hl small { color: var(--amber); }
+.callout { display: flex; gap: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+.callout .ic { color: var(--amber); margin-top: 3px; }
+.callout p { margin: 4px 0 0; color: var(--muted); }
+.vis { display: grid; gap: 6px; margin: 12px 0; }
+.vis-row { display: grid; grid-template-columns: 130px 1fr auto; gap: 12px; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--line-2); border-radius: 10px; padding: 9px 12px; font-size: 14px; }
+.vis-row span { color: var(--muted); }
+.vis-row.good { border-left-color: var(--green); }
+.vis-row.bad { border-left-color: var(--red); }
+.code-line { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: 14px; }
+mark { background: var(--amber); color: var(--amber-ink); border-radius: 4px; padding: 0 4px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.two-col .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.two-col h3 { display: flex; gap: 8px; align-items: center; font-size: 15.5px; margin: 0 0 8px; }
+.two-col h3 .ic { color: var(--amber); }
+.ini { background: #0d0c11; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; overflow-x: auto; }
+.ini code { background: none; border: none; padding: 0; color: #ffd98a; white-space: pre-wrap; word-break: break-word; }
+.ids { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.ids > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: var(--bg-2); border: 1px dashed var(--line-2); border-radius: 10px; padding: 10px 12px; }
+.ids small { width: 100%; color: var(--muted); }
+.mini-link { font-size: 13px; margin-top: 4px; pointer-events: auto; }
+.saved-at { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; margin: -6px 0 14px; }
+.saved-at span { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--text); }
+@media (max-width: 720px) {
+  .guide-toc { grid-template-columns: 1fr 1fr; }
+  .guide-steps > li { padding: 70px 18px 18px; }
+  .guide-steps > li::before { left: 18px; top: 18px; }
+  .two-col, .ids { grid-template-columns: 1fr; }
+  .vis-row { grid-template-columns: 1fr; gap: 2px; }
+  .tree .l3 { margin-left: 30px; }
+  .tree .row { white-space: normal; flex-wrap: wrap; }
+  .tree .row small { margin-left: 0; width: 100%; padding-left: 25px; }
+  .tree .l2 { margin-left: 20px; }
+  .tree .l1 { margin-left: 10px; }
+}
+.guide-steps { overflow-wrap: anywhere; }
+.code-line code { word-break: break-all; }

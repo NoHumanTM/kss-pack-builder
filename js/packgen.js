@@ -127,15 +127,21 @@ export function manifest(pack) {
   }, null, 2);
 }
 
-export function workshopTxt(pack) {
+// previous: el workshop.txt que ya había (si se vuelve a generar). Se conservan el "id=" que pone el juego
+// al subirlo (sin él, la próxima subida crearía otro objeto) y la visibilidad que haya elegido el usuario.
+export function workshopTxt(pack, previous = "") {
+  const keep = (key) => (previous.match(new RegExp(`^${key}=(.*)$`, "m")) || [])[1]?.trim();
+  const id = keep("id");
+  const visibility = keep("visibility") || "unlisted";
   const lines = [
     "version=1",
+    ...(id ? [`id=${id}`] : []),
     `title=KSS Pack: ${oneLine(pack.name || pack.id)}`,
     `description=Music pack for Knox Sound System. ${oneLine(pack.description)}`,
     "description=",
     "description=Requires [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3815623933]Knox Sound System[/url] (Workshop ID 3815623933).",
     "tags=Build 42;Audio",
-    "visibility=unlisted",
+    `visibility=${visibility}`,
   ];
   return lines.join("\n") + "\n";
 }
