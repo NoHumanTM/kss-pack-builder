@@ -2,7 +2,7 @@
 
 import { t, applyStatic, getLang, setLang } from "./i18n.js";
 import {
-  GENRES, RARITIES, FORMATS, PACK_ID_RE, AUDIO_EXT, IMAGE_EXT,
+  GENRES, RARITIES, FORMATS, PACK_ID_RE, AUDIO_EXT, IMAGE_EXT, MAX_TRACKS,
   newId, slugify, extOf, formatTime,
 } from "./constants.js";
 import { readTrackInfo, isCoverImage, groupKey } from "./tags.js";
@@ -215,8 +215,45 @@ async function addFiles(files) {
       added++;
     }
   }
+  splitOversizedAlbums();
   markDirty();
   notice("music-notice", t("music.added", added, albumsTouched));
+}
+
+// Un CD o un cassette lleva como mucho MAX_TRACKS pistas: los álbumes más grandes se parten en volúmenes.
+// El primer volumen conserva el álbum (y su id, para no romper partidas); los demás son álbumes nuevos.
+const VOL_RE = /\s*\(Vol\.\s*(\d+)\)\s*$/i;
+
+function splitAlbum(album) {
+  if (album.tracks.length <= MAX_TRACKS) return [album];
+  const base = album.title.replace(VOL_RE, "").trim() || album.title;
+  const alreadyVolume = VOL_RE.test(album.title);
+  // si ya era un volumen, los trozos nuevos siguen la numeración de los volúmenes que existan
+  let nextVol = 1;
+  if (alreadyVolume) {
+    for (const a of state.pack.albums) {
+      const m = VOL_RE.exec(a.title);
+      if (m && a.title.replace(VOL_RE, "").trim().toLowerCase() === base.toLowerCase()) {
+        nextVol = Math.max(nextVol, parseInt(m[1], 10) + 1);
+      }
+    }
+  }
+  const chunks = [];
+  for (let i = 0; i < album.tracks.length; i += MAX_TRACKS) chunks.push(album.tracks.slice(i, i + MAX_TRACKS));
+  return chunks.map((tracks, i) => {
+    const vol = i === 0 ? album : newAlbum({
+      artist: album.artist, year: album.year, genre: album.genre, rarity: album.rarity, formats: [...album.formats],
+    });
+    if (!alreadyVolume) vol.title = `${base} (Vol. ${i + 1})`;
+    else if (i > 0) vol.title = `${base} (Vol. ${nextVol++})`;
+    vol.tracks = tracks;
+    if (i > 0 && album.coverBlob) setCover(vol, album.coverBlob);
+    return vol;
+  });
+}
+
+function splitOversizedAlbums() {
+  state.pack.albums = state.pack.albums.flatMap(splitAlbum);
 }
 
 function setupDropzone() {
@@ -285,6 +322,7 @@ function albumWarnings(album) {
   if (!album.genre) w.push(t("warn.genre"));
   if (!album.formats.length) w.push(t("warn.formats"));
   if (!album.tracks.length) w.push(t("warn.tracks"));
+  if (album.tracks.length > MAX_TRACKS) w.push(t("warn.tooMany", album.tracks.length, MAX_TRACKS));
   return w;
 }
 
@@ -436,7 +474,10 @@ function renderAlbum(album) {
       onclick: () => { for (const a of state.pack.albums) if (!a.genre) a.genre = album.genre; markDirty(); renderAlbums(); },
     }) : null,
     el("ol", { class: "tracks" }, album.tracks.map((tr, i) => renderTrack(album, tr, i))),
-    el("div", { class: "album-actions" }, [el("button", {
+    el("div", { class: "album-actions" }, [album.tracks.length > MAX_TRACKS ? el("button", {
+      class: "btn small", type: "button", text: t("album.split"),
+      onclick: () => { splitOversizedAlbums(); markDirty(); renderAlbums(); },
+    }) : null, el("button", {
       class: "link", type: "button", text: t("album.delete"),
       onclick: () => {
         if (!confirm(t("album.deleteConfirm", album.title, album.tracks.length))) return;
@@ -495,7 +536,7 @@ function mergeAllAlbums() {
     }
     if (a !== withCover) setCover(a, null);
   }
-  state.pack.albums = [mix];
+  state.pack.albums = splitAlbum(mix);
   markDirty();
   renderAlbums();
 }

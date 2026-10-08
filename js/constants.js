@@ -4,6 +4,9 @@ export const FORMAT_VERSION = 1;
 export const CORE_MOD_ID = "KnoxSoundSystem";
 export const PACK_ID_RE = /^[a-z0-9_]{3,32}$/;
 
+// Máximo de pistas por álbum (un CD o un cassette)
+export const MAX_TRACKS = 25;
+
 export const GENRES = [
   "rock", "metal", "punk", "grunge", "pop", "hiphop", "country", "blues", "jazz",
   "soul", "electronic", "classical", "folk", "latin", "reggae", "gospel", "soundtrack", "other",

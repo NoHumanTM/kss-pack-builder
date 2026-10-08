@@ -8,6 +8,20 @@ let ffmpeg = null;
 let loading = null;
 let logLines = [];
 let progressHandler = null;
+// ffmpeg.wasm fragmenta su memoria con muchas conversiones seguidas ("memory access out of bounds"):
+// se reinicia cada pocas pistas y, si una falla, se reinicia y se reintenta.
+const RESET_EVERY = 8;
+let runsSinceReset = 0;
+
+export async function resetFFmpeg() {
+  const old = ffmpeg;
+  ffmpeg = null;
+  loading = null;
+  runsSinceReset = 0;
+  if (old) {
+    try { old.terminate(); } catch (e) { /* ya estaba roto */ }
+  }
+}
 
 export async function loadFFmpeg() {
   if (ffmpeg) return ffmpeg;
@@ -60,7 +74,25 @@ function durationFromAudio(blob) {
 
 // Convierte una pista: devuelve { ogg, muffled, duration }
 // onProgress(0..1) informa del avance de esta pista.
-export async function convertTrack(file, { normalize = true, onProgress } = {}) {
+export async function convertTrack(file, options = {}) {
+  if (runsSinceReset >= RESET_EVERY) await resetFFmpeg();
+  runsSinceReset++;
+  try {
+    return await convertOnce(file, options);
+  } catch (first) {
+    // el conversor puede haberse quedado roto: empezar de cero y reintentar una vez
+    await resetFFmpeg();
+    runsSinceReset++;
+    try {
+      return await convertOnce(file, options);
+    } catch (second) {
+      await resetFFmpeg();
+      throw second;
+    }
+  }
+}
+
+async function convertOnce(file, { normalize = true, onProgress } = {}) {
   const ff = await loadFFmpeg();
   const input = `in.${extOf(file.name) || "bin"}`;
   try {
