@@ -87,4 +87,4 @@ export function formatTime(seconds) {
 }
 
 // Página del mod en Steam (vacío = no se muestra el enlace)
-export const MOD_URL = "";
+export const MOD_URL = "https://steamcommunity.com/sharedfiles/filedetails/?id=3815623933";

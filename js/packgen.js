@@ -133,7 +133,7 @@ export function workshopTxt(pack) {
     `title=KSS Pack: ${oneLine(pack.name || pack.id)}`,
     `description=Music pack for Knox Sound System. ${oneLine(pack.description)}`,
     "description=",
-    "description=Requires Knox Sound System.",
+    "description=Requires [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3815623933]Knox Sound System[/url] (Workshop ID 3815623933).",
     "tags=Build 42;Audio",
     "visibility=unlisted",
   ];
