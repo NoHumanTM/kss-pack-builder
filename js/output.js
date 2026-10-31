@@ -82,18 +82,44 @@ export class SubWriter {
 }
 
 // --- Escritor en .zip (cualquier navegador) ---------------------------------
+// Un .zip de varios GB no cabe en un Blob del navegador ("can't construct the Blob") y además
+// JSZip no pasa de 4 GB. Con packs grandes se descarga en partes de ~500 MB: todas llevan la misma
+// estructura de carpetas, así que al descomprimirlas juntas en "mods" quedan en un solo pack.
+const ZIP_PART_BYTES = 500 * 1024 * 1024;
+
+function sizeOf(data) {
+  if (data == null) return 0;
+  if (typeof data === "string") return data.length * 3; // peor caso UTF-8
+  return data.byteLength ?? data.size ?? data.length ?? 0;
+}
+
 export class ZipWriter {
   constructor(fileName) {
-    this.zip = new window.JSZip();
     this.fileName = fileName;
+    this.parts = 0; // partes ya descargadas
+    this.newZip();
   }
-  async write(path, data) { this.zip.file(path, data); }
+  newZip() {
+    this.zip = new window.JSZip();
+    this.bytes = 0;
+  }
+  async write(path, data) {
+    const size = sizeOf(data);
+    if (this.bytes > 0 && this.bytes + size > ZIP_PART_BYTES) {
+      await this.flush(`_part${this.parts + 1}`);
+      this.newZip();
+    }
+    this.zip.file(path, data);
+    this.bytes += size;
+  }
   async exists() { return false; }
   async read() { throw new Error("zip"); }
   async prune() { return 0; }
-  async finish(onProgress) {
+
+  async flush(suffix, onProgress) {
     const blob = await this.zip.generateAsync({ type: "blob", compression: "STORE" },
       (meta) => onProgress && onProgress(meta.percent / 100));
+    this.parts++;
     if (window.KSSDebug) {
       // pruebas en localhost: guardar el zip en memoria en vez de descargarlo
       window.KSSDebug.lastZip = blob;
@@ -102,11 +128,15 @@ export class ZipWriter {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = this.fileName;
+    a.download = this.fileName.replace(/\.zip$/i, "") + suffix + ".zip";
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  async finish(onProgress) {
+    await this.flush(this.parts > 0 ? `_part${this.parts + 1}` : "", onProgress);
   }
 }
 

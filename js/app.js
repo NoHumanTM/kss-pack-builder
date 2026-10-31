@@ -939,6 +939,7 @@ async function build() {
     if (target.zip) {
       progress(1, t("build.zipping"));
       await target.zip.finish((p) => progress(p, t("build.zipping")));
+      if (target.zip.parts > 1) log(t("build.zipParts", target.zip.parts));
     }
 
     // a partir de ahora, el pack está en esa carpeta: se puede seguir editando sin reconvertir
