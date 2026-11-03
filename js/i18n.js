@@ -72,6 +72,8 @@ const STRINGS = {
     "pack.id": "Internal ID",
     "pack.idHint": "3-32 characters: lowercase letters, numbers or _. Filled in for you. Never change it after sharing the pack.",
     "pack.opened": "Opened “{0}” ({1} albums). Songs already converted are kept.",
+    "pack.openedZip": "Opened “{0}” ({1} albums). Songs already converted are kept. Your browser can't save into that folder, so you'll get the full pack as a .zip: unzip it over the old folder in Zomboid/mods. If you removed songs, delete the old folder first.",
+    "pack.noManifest": "That folder isn't a KSS pack (no kss_pack.json found). Choose the KSS_Pack_… folder inside Zomboid/mods.",
 
     "music.title": "Add your music",
     "music.sub": "We read the tags and covers and sort your songs into albums for you.",
@@ -174,6 +176,7 @@ const STRINGS = {
     "build.zipParts": "The pack is big, so it was downloaded in {0} .zip parts. Unzip ALL of them into the same Zomboid/mods folder (if the browser asks, allow multiple downloads).",
     "build.done": "Done! {0} songs converted.",
     "build.failedTrack": "Couldn't convert “{0}”: {1}",
+    "build.missingTrack": "“{0}” was removed from the pack: its audio files aren't in the folder you opened.",
     "build.fixFirst": "Before building: {0}",
     "build.fixName": "give your pack a name",
     "build.fixMusic": "add some music",
@@ -336,6 +339,8 @@ const STRINGS = {
     "pack.id": "ID interno",
     "pack.idHint": "3-32 caracteres: minúsculas, números o _. Se rellena solo. No lo cambies nunca después de compartir el pack.",
     "pack.opened": "Abierto «{0}» ({1} álbumes). Las canciones ya convertidas se conservan.",
+    "pack.openedZip": "Abierto «{0}» ({1} álbumes). Las canciones ya convertidas se conservan. Tu navegador no puede guardar en esa carpeta, así que recibirás el pack completo en .zip: descomprímelo encima de la carpeta antigua en Zomboid/mods. Si has quitado canciones, borra antes la carpeta antigua.",
+    "pack.noManifest": "Esa carpeta no es un pack de KSS (no tiene kss_pack.json). Elige la carpeta KSS_Pack_… dentro de Zomboid/mods.",
 
     "music.title": "Añade tu música",
     "music.sub": "Leemos las etiquetas y las carátulas y ordenamos tus canciones en álbumes.",
@@ -438,6 +443,7 @@ const STRINGS = {
     "build.zipParts": "El pack es grande y se ha descargado en {0} partes .zip. Descomprímelas TODAS en la misma carpeta Zomboid/mods (si el navegador pregunta, permite varias descargas).",
     "build.done": "¡Hecho! {0} canciones convertidas.",
     "build.failedTrack": "No se pudo convertir «{0}»: {1}",
+    "build.missingTrack": "«{0}» se ha quitado del pack: sus archivos de audio no están en la carpeta que abriste.",
     "build.fixFirst": "Antes de generar: {0}",
     "build.fixName": "ponle nombre al pack",
     "build.fixMusic": "añade música",

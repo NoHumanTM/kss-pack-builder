@@ -153,8 +153,56 @@ export async function pickZomboidFolder(target) {
   return { writer, label: handle.name, unusual: true };
 }
 
+// --- Carpeta de solo lectura (Firefox, Safari) ------------------------------
+// Estos navegadores dejan leer una carpeta que elija el usuario, pero no escribir en ella:
+// el pack se puede abrir y editar, y el resultado se descarga en .zip.
+export class FileListReader {
+  constructor(files) {
+    const list = Array.from(files);
+    const isManifest = (f) => f.webkitRelativePath.split("/").pop() === "kss_pack.json";
+    // la raíz del pack es donde está su kss_pack.json (la menos profunda, si eligieron una carpeta de encima)
+    const manifest = list.filter(isManifest)
+      .sort((a, b) => a.webkitRelativePath.length - b.webkitRelativePath.length)[0];
+    this.found = !!manifest;
+    this.files = new Map();
+    if (!manifest) return;
+    const prefix = manifest.webkitRelativePath.slice(0, -"kss_pack.json".length);
+    this.label = prefix.replace(/\/$/, "").split("/").pop();
+    for (const f of list) {
+      if (f.webkitRelativePath.startsWith(prefix)) this.files.set(f.webkitRelativePath.slice(prefix.length), f);
+    }
+  }
+  async exists(path) { return this.files.has(path); }
+  async read(path) {
+    const file = this.files.get(path);
+    if (!file) throw new Error(path);
+    return file;
+  }
+}
+
+export async function openPackFiles(files) {
+  const writer = new FileListReader(files);
+  if (!writer.found) throw new Error("no-manifest");
+  const manifest = JSON.parse(await (await writer.read("kss_pack.json")).text());
+  return { writer, manifest, label: writer.label, readOnly: true };
+}
+
+function chooseFolderFiles() {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.webkitdirectory = true;
+    input.hidden = true;
+    document.body.appendChild(input); // fuera del documento, algunos navegadores no avisan del "change"
+    input.addEventListener("change", () => { resolve(input.files); input.remove(); });
+    input.addEventListener("cancel", () => { reject(new DOMException("cancel", "AbortError")); input.remove(); });
+    input.click();
+  });
+}
+
 // Abre una carpeta de pack ya generada (KSS_Pack_xxx) para reeditarla
 export async function pickPackFolder() {
+  if (!canWriteFolders) return openPackFiles(await chooseFolderFiles());
   const handle = await window.showDirectoryPicker({ id: "kss-pack", mode: "readwrite" });
   const writer = new FolderWriter(handle);
   const manifestFile = await writer.read("kss_pack.json");

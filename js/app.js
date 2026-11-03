@@ -8,7 +8,7 @@ import {
 import { readTrackInfo, isCoverImage, groupKey } from "./tags.js";
 import { loadFFmpeg, convertTrack, squareImage, makePreview } from "./convert.js";
 import * as gen from "./packgen.js";
-import { canWriteFolders, ZipWriter, SubWriter, pickZomboidFolder, pickPackFolder } from "./output.js";
+import { canWriteFolders, ZipWriter, SubWriter, pickZomboidFolder, pickPackFolder, openPackFiles } from "./output.js";
 import { parseYouTubeUrl, buildCommand } from "./youtube.js";
 
 const $ = (id) => document.getElementById(id);
@@ -249,9 +249,9 @@ function resetPack() {
   refreshChrome();
 }
 
-async function openExistingPack() {
+async function openExistingPack(files) {
   try {
-    const { writer, manifest, label } = await pickPackFolder();
+    const { writer, manifest, label, readOnly } = await (files ? openPackFiles(files) : pickPackFolder());
     resetPack();
     state.pack.id = manifest.id;
     state.pack.name = manifest.name || manifest.id;
@@ -271,12 +271,12 @@ async function openExistingPack() {
       } catch (e) { /* sin carátula */ }
       state.pack.albums.push(album);
     }
-    state.opened = { writer, label };
+    state.opened = { writer, label, readOnly };
     syncPackForm();
-    notice("pack-notice", t("pack.opened", state.pack.name, state.pack.albums.length));
+    notice("pack-notice", t(readOnly ? "pack.openedZip" : "pack.opened", state.pack.name, state.pack.albums.length));
     refreshChrome();
   } catch (e) {
-    if (e.name !== "AbortError") notice("pack-notice", String(e.message || e));
+    if (e.name !== "AbortError") notice("pack-notice", e.message === "no-manifest" ? t("pack.noManifest") : String(e.message || e));
   }
 }
 
@@ -776,8 +776,9 @@ function renderBuild() {
     if (!canWriteFolders) d.querySelector("input").checked = false;
   });
   if (!canWriteFolders) document.querySelector("input[name=dest][value=zip]").checked = true;
-  $("dest-same").hidden = !state.opened;
-  if (state.opened) {
+  const canUpdate = state.opened && !state.opened.readOnly;
+  $("dest-same").hidden = !canUpdate;
+  if (canUpdate) {
     $("dest-same-label").textContent = state.opened.label;
     if (!state.building && !state.built) document.querySelector("input[name=dest][value=same]").checked = true;
   }
@@ -876,8 +877,13 @@ async function build() {
         // ya convertida en el pack abierto: si se guarda en otro sitio, se copia
         if (!target.same) {
           const src = state.opened.writer;
-          await mod.write(paths.sound(track.id, false), await src.read(paths.sound(track.id, false)));
-          await mod.write(paths.sound(track.id, true), await src.read(paths.sound(track.id, true)));
+          try {
+            await mod.write(paths.sound(track.id, false), await src.read(paths.sound(track.id, false)));
+            await mod.write(paths.sound(track.id, true), await src.read(paths.sound(track.id, true)));
+          } catch (e) {
+            failed.add(track);
+            log(t("build.missingTrack", track.title), true);
+          }
         }
         continue;
       }
@@ -1010,7 +1016,6 @@ function init() {
     e.preventDefault();
     $(a.getAttribute("href").slice(1)).scrollIntoView({ behavior: "smooth" });
   }));
-  $("btn-home-open").hidden = !canWriteFolders;
   $("btn-home-open").addEventListener("click", async () => { showWizard("pack"); await openExistingPack(); });
   $("brand-home").addEventListener("click", () => { history.replaceState(null, "", location.pathname); showHome(); });
   $("link-faq").addEventListener("click", (e) => { e.preventDefault(); showHome("faq"); });
@@ -1043,8 +1048,7 @@ function init() {
     toast(t("pack.newDone"));
     $("pack-name").focus();
   });
-  $("btn-open").hidden = !canWriteFolders;
-  $("btn-open").addEventListener("click", openExistingPack);
+  $("btn-open").addEventListener("click", () => openExistingPack());
 
   // paso 3
   $("btn-merge-all").addEventListener("click", mergeAllAlbums);
@@ -1083,7 +1087,7 @@ function init() {
 
   // Ganchos para pruebas automáticas (solo al abrir la web en tu propio PC)
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {
-    window.KSSDebug = { state, addFiles, build, renderAlbums, showStep, showWizard, showHome, syncPackForm, lastZip: null, noDownload: true };
+    window.KSSDebug = { state, addFiles, build, openExistingPack, renderAlbums, showStep, showWizard, showHome, syncPackForm, lastZip: null, noDownload: true };
   }
 }
 
