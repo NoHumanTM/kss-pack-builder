@@ -165,19 +165,28 @@ export class FileListReader {
       .sort((a, b) => a.webkitRelativePath.length - b.webkitRelativePath.length)[0];
     this.found = !!manifest;
     this.files = new Map();
+    this.byTail = new Map();
     if (!manifest) return;
     const prefix = manifest.webkitRelativePath.slice(0, -"kss_pack.json".length);
     this.label = prefix.replace(/\/$/, "").split("/").pop();
     for (const f of list) {
       if (f.webkitRelativePath.startsWith(prefix)) this.files.set(f.webkitRelativePath.slice(prefix.length), f);
+      // si el pack vino en varias partes .zip descomprimidas cada una en su carpeta, sus audios
+      // están fuera de la carpeta del kss_pack.json: se encuentran por "packId/archivo"
+      this.byTail.set(tailOf(f.webkitRelativePath), f);
     }
   }
-  async exists(path) { return this.files.has(path); }
+  find(path) { return this.files.get(path) || this.byTail.get(tailOf(path)); }
+  async exists(path) { return !!this.find(path); }
   async read(path) {
-    const file = this.files.get(path);
+    const file = this.find(path);
     if (!file) throw new Error(path);
     return file;
   }
+}
+
+function tailOf(path) {
+  return path.split("/").slice(-2).join("/");
 }
 
 export async function openPackFiles(files) {

@@ -249,31 +249,55 @@ function resetPack() {
   refreshChrome();
 }
 
-async function openExistingPack(files) {
+// Abre un pack ya generado. Con merge = true sus álbumes se añaden al pack actual (combinar packs).
+// Cada canción recuerda de dónde copiar su audio (src), así que pueden venir de packs distintos.
+async function openExistingPack(files, merge = false) {
   try {
     const { writer, manifest, label, readOnly } = await (files ? openPackFiles(files) : pickPackFolder());
-    resetPack();
-    state.pack.id = manifest.id;
-    state.pack.name = manifest.name || manifest.id;
-    state.pack.author = manifest.author || "";
-    state.pack.description = manifest.description || "";
-    state.idTouched = true;
+    if (!merge) {
+      resetPack();
+      state.pack.id = manifest.id;
+      state.pack.name = manifest.name || manifest.id;
+      state.pack.author = manifest.author || "";
+      state.pack.description = manifest.description || "";
+      state.idTouched = true;
+    }
+    const src = { writer, packId: manifest.id };
+    const paths = gen.paths(manifest.id);
+    const usedIds = new Set(state.pack.albums.map((a) => a.id));
+    let added = 0;
+    let missing = 0;
     for (const a of manifest.albums || []) {
       const album = newAlbum({
-        id: a.id, title: a.title || "", artist: a.artist || "", year: a.year || "",
+        id: usedIds.has(a.id) ? newId() : a.id, title: a.title || "", artist: a.artist || "", year: a.year || "",
         genre: a.genre || null, rarity: a.rarity || "common", formats: a.formats || ["cd", "cassette"],
       });
-      album.tracks = (a.tracks || []).map((tr) => ({
-        id: tr.id, title: tr.title, file: null, existing: true, duration: tr.duration || 0, sourceName: tr.file || null,
-      }));
+      album.tracks = [];
+      for (const tr of a.tracks || []) {
+        const ok = await writer.exists(paths.sound(tr.id, false));
+        if (!ok) missing++;
+        album.tracks.push({
+          id: tr.id, title: tr.title, file: null, existing: true, missing: !ok, src,
+          duration: tr.duration || 0, sourceName: tr.file || null,
+        });
+      }
       try {
-        setCover(album, await writer.read(gen.paths(manifest.id).cover(a.id)));
+        setCover(album, await writer.read(paths.cover(a.id)));
       } catch (e) { /* sin carátula */ }
       state.pack.albums.push(album);
+      added++;
     }
-    state.opened = { writer, label, readOnly };
+    if (merge) {
+      markDirty();
+      renderAlbums();
+    } else {
+      state.opened = { writer, label, readOnly };
+    }
     syncPackForm();
-    notice("pack-notice", t(readOnly ? "pack.openedZip" : "pack.opened", state.pack.name, state.pack.albums.length));
+    let text = merge ? t("pack.merged", manifest.name || manifest.id, added, state.pack.name || state.pack.id)
+      : t(readOnly ? "pack.openedZip" : "pack.opened", state.pack.name, added);
+    if (missing) text += " " + t("pack.missingAudio", missing);
+    notice("pack-notice", text);
     refreshChrome();
   } catch (e) {
     if (e.name !== "AbortError") notice("pack-notice", e.message === "no-manifest" ? t("pack.noManifest") : String(e.message || e));
@@ -555,7 +579,7 @@ function renderTrack(album, track, index) {
     el("span", { class: "handle", text: "⠿", title: "drag" }),
     el("span", { class: "num", text: String(index + 1).padStart(2, "0") }),
     el("input", { type: "text", value: track.title, "aria-label": t("album.title"), oninput: (e) => { track.title = e.target.value; markDirty(); } }),
-    el("span", { class: "dur", text: track.existing ? `${formatTime(track.duration)} · ${t("track.kept")}` : (track.duration ? formatTime(track.duration) : "") }),
+    el("span", { class: "dur", text: track.missing ? t("track.missing") : track.existing ? `${formatTime(track.duration)} · ${t("track.kept")}` : (track.duration ? formatTime(track.duration) : "") }),
     move,
     el("button", {
       class: "remove", type: "button", title: t("track.remove"), "aria-label": t("track.remove"), text: "×",
@@ -758,6 +782,8 @@ function blockers() {
   if (!packOk()) out.push(t("build.fixName"));
   if (!allTracks().length) out.push(t("build.fixMusic"));
   else if (badAlbums().length) out.push(t("build.fixAlbums"));
+  const missing = allTracks().filter((tr) => tr.missing).length;
+  if (missing) out.push(t("build.fixMissing", missing));
   return out;
 }
 
@@ -874,12 +900,13 @@ async function build() {
       const base = i / tracks.length;
       progress(base, label);
       if (track.existing && !track.file) {
-        // ya convertida en el pack abierto: si se guarda en otro sitio, se copia
-        if (!target.same) {
-          const src = state.opened.writer;
+        // ya convertida: se copia, salvo que ya esté en la carpeta donde se guarda
+        const src = track.src;
+        if (!(target.same && src.writer === mod && src.packId === pack.id)) {
+          const from = gen.paths(src.packId);
           try {
-            await mod.write(paths.sound(track.id, false), await src.read(paths.sound(track.id, false)));
-            await mod.write(paths.sound(track.id, true), await src.read(paths.sound(track.id, true)));
+            await mod.write(paths.sound(track.id, false), await src.writer.read(from.sound(track.id, false)));
+            await mod.write(paths.sound(track.id, true), await src.writer.read(from.sound(track.id, true)));
           } catch (e) {
             failed.add(track);
             log(t("build.missingTrack", track.title), true);
@@ -951,7 +978,7 @@ async function build() {
     // a partir de ahora, el pack está en esa carpeta: se puede seguir editando sin reconvertir
     if (target.isFolder) {
       state.opened = { writer: mod, label: target.label };
-      for (const tr of allTracks()) { tr.existing = true; tr.file = null; }
+      for (const tr of allTracks()) { tr.existing = true; tr.file = null; tr.src = { writer: mod, packId: pack.id }; }
     }
     state.dirty = false;
     state.built = true;
@@ -1049,6 +1076,7 @@ function init() {
     $("pack-name").focus();
   });
   $("btn-open").addEventListener("click", () => openExistingPack());
+  $("btn-merge").addEventListener("click", () => openExistingPack(null, true));
 
   // paso 3
   $("btn-merge-all").addEventListener("click", mergeAllAlbums);
@@ -1087,7 +1115,7 @@ function init() {
 
   // Ganchos para pruebas automáticas (solo al abrir la web en tu propio PC)
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {
-    window.KSSDebug = { state, addFiles, build, openExistingPack, renderAlbums, showStep, showWizard, showHome, syncPackForm, lastZip: null, noDownload: true };
+    window.KSSDebug = { state, addFiles, build, openExistingPack, renderBuild, renderAlbums, showStep, showWizard, showHome, syncPackForm, lastZip: null, noDownload: true };
   }
 }
 
