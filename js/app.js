@@ -249,8 +249,49 @@ function resetPack() {
   refreshChrome();
 }
 
-// Abre un pack ya generado. Con merge = true sus álbumes se añaden al pack actual (combinar packs).
+// Añade al pack actual los álbumes de un pack ya generado (sin repetir canciones que ya estén).
 // Cada canción recuerda de dónde copiar su audio (src), así que pueden venir de packs distintos.
+async function addPackAlbums(writer, manifest) {
+  const src = { writer, packId: manifest.id };
+  const paths = gen.paths(manifest.id);
+  const usedIds = new Set(state.pack.albums.map((a) => a.id));
+  const haveTracks = new Set(allTracks().map((tr) => tr.id));
+  let added = 0;
+  let missing = 0;
+  for (const a of manifest.albums || []) {
+    const album = newAlbum({
+      id: usedIds.has(a.id) ? newId() : a.id, title: a.title || "", artist: a.artist || "", year: a.year || "",
+      genre: a.genre || null, rarity: a.rarity || "common", formats: a.formats || ["cd", "cassette"],
+    });
+    album.tracks = [];
+    for (const tr of a.tracks || []) {
+      if (haveTracks.has(tr.id)) continue;
+      const ok = await writer.exists(paths.sound(tr.id, false));
+      if (!ok) missing++;
+      album.tracks.push({
+        id: tr.id, title: tr.title, file: null, existing: true, missing: !ok, src,
+        duration: tr.duration || 0, sourceName: tr.file || null,
+      });
+    }
+    if (!album.tracks.length) continue;
+    try {
+      setCover(album, await writer.read(paths.cover(a.id)));
+    } catch (e) { /* sin carátula */ }
+    state.pack.albums.push(album);
+    added++;
+  }
+  return { added, missing };
+}
+
+async function readManifest(writer) {
+  try {
+    return JSON.parse(await (await writer.read(gen.paths("").manifest)).text());
+  } catch (e) {
+    return null;
+  }
+}
+
+// Abre un pack ya generado. Con merge = true sus álbumes se añaden al pack actual (combinar packs).
 async function openExistingPack(files, merge = false) {
   try {
     const { writer, manifest, label, readOnly } = await (files ? openPackFiles(files) : pickPackFolder());
@@ -262,36 +303,12 @@ async function openExistingPack(files, merge = false) {
       state.pack.description = manifest.description || "";
       state.idTouched = true;
     }
-    const src = { writer, packId: manifest.id };
-    const paths = gen.paths(manifest.id);
-    const usedIds = new Set(state.pack.albums.map((a) => a.id));
-    let added = 0;
-    let missing = 0;
-    for (const a of manifest.albums || []) {
-      const album = newAlbum({
-        id: usedIds.has(a.id) ? newId() : a.id, title: a.title || "", artist: a.artist || "", year: a.year || "",
-        genre: a.genre || null, rarity: a.rarity || "common", formats: a.formats || ["cd", "cassette"],
-      });
-      album.tracks = [];
-      for (const tr of a.tracks || []) {
-        const ok = await writer.exists(paths.sound(tr.id, false));
-        if (!ok) missing++;
-        album.tracks.push({
-          id: tr.id, title: tr.title, file: null, existing: true, missing: !ok, src,
-          duration: tr.duration || 0, sourceName: tr.file || null,
-        });
-      }
-      try {
-        setCover(album, await writer.read(paths.cover(a.id)));
-      } catch (e) { /* sin carátula */ }
-      state.pack.albums.push(album);
-      added++;
-    }
+    const { added, missing } = await addPackAlbums(writer, manifest);
     if (merge) {
       markDirty();
       renderAlbums();
     } else {
-      state.opened = { writer, label, readOnly };
+      state.opened = { writer, label, readOnly, packId: manifest.id };
     }
     syncPackForm();
     let text = merge ? t("pack.merged", manifest.name || manifest.id, added, state.pack.name || state.pack.id)
@@ -797,6 +814,7 @@ function renderBuild() {
     stat(albums.filter((a) => a.formats.includes("cassette")).length, t("stat.cassette")),
   );
   $("no-folders").hidden = canWriteFolders;
+  $("zip-replaces").hidden = canWriteFolders || !!state.opened;
   document.querySelectorAll("[data-needs-folders]").forEach((d) => {
     d.classList.toggle("disabled", !canWriteFolders);
     if (!canWriteFolders) d.querySelector("input").checked = false;
@@ -873,6 +891,33 @@ async function build() {
     return;
   }
 
+  // ¿Ya hay en esa carpeta un pack con este nombre que no se ha abierto aquí? Generar encima borraría
+  // sus canciones: se pregunta si conservarlas (se añaden a este pack) o cancelar sin tocar nada.
+  let keptNote = null;
+  if (target.isFolder && !target.same) {
+    const existing = await readManifest(target.mod);
+    const openedThis = state.opened && state.opened.packId === pack.id;
+    if (existing && !openedThis) {
+      const have = new Set(allTracks().map((tr) => tr.id));
+      const lost = (existing.albums || []).flatMap((a) => a.tracks || []).filter((tr) => !have.has(tr.id)).length;
+      if (lost > 0) {
+        if (!confirm(t("build.existingPack", existing.name || existing.id, lost))) {
+          log(t("build.existingCancelled"));
+          return;
+        }
+        const { missing } = await addPackAlbums(target.mod, existing);
+        state.opened = { writer: target.mod, label: target.label, packId: pack.id };
+        markDirty();
+        renderAlbums();
+        keptNote = t("build.existingKept", lost);
+        if (missing) {
+          log(t("build.fixMissing", missing), true);
+          return;
+        }
+      }
+    }
+  }
+
   state.building = true;
   state.cancel = false;
   $("btn-build").disabled = true;
@@ -880,6 +925,7 @@ async function build() {
   $("next-steps").hidden = true;
   $("progress-hint").hidden = false;
   $("log").replaceChildren();
+  if (keptNote) log(keptNote);
   const paths = gen.paths(pack.id);
   const mod = target.mod;
   let ok = false;
@@ -902,7 +948,7 @@ async function build() {
       if (track.existing && !track.file) {
         // ya convertida: se copia, salvo que ya esté en la carpeta donde se guarda
         const src = track.src;
-        if (!(target.same && src.writer === mod && src.packId === pack.id)) {
+        if (!(src.writer === mod && src.packId === pack.id)) {
           const from = gen.paths(src.packId);
           try {
             await mod.write(paths.sound(track.id, false), await src.writer.read(from.sound(track.id, false)));
@@ -977,7 +1023,7 @@ async function build() {
 
     // a partir de ahora, el pack está en esa carpeta: se puede seguir editando sin reconvertir
     if (target.isFolder) {
-      state.opened = { writer: mod, label: target.label };
+      state.opened = { writer: mod, label: target.label, packId: pack.id };
       for (const tr of allTracks()) { tr.existing = true; tr.file = null; tr.src = { writer: mod, packId: pack.id }; }
     }
     state.dirty = false;
